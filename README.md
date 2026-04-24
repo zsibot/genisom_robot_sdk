@@ -72,6 +72,7 @@ For more in-depth information, please refer to the official documentation:
 - **[API Reference](docs/en/sdk_client_api_en.md)**: Detailed descriptions of SDK functions.
 - **[SDK Data Structures Documentation](docs/en/sdk_type_en.md)**: Detailed descriptions of SDK data structures.
 - **[SDK State Transitions](docs/en/sdk_state_en.md)**: Detailed descriptions of SDK internal state transitions.
+- **[Original Protocol Document](docs/protocol/Protocol-1.2.0.pdf)**: If you do not intend to control the machine via the SDK, please refer to this document.
 
 ## 📁 Repository Structure
 

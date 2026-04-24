@@ -71,6 +71,7 @@ make -j6
 - **[API 参考](docs/zh/sdk_client_api_cn.md)**: SDK 函数的详细说明。
 - **[SDK 数据结构文档](docs/zh/sdk_type_cn.md)**: SDK 数据结构详细说明。
 - **[SDK 状态流转](docs/zh/sdk_state_cn.md)**: SDK 内部一些状态流转详细说明。
+- **[原始通信协议文档](docs/protocol/Protocol-1.2.0.pdf)**: 如果不打算通过SDK控制机器，请参考此文档。
 
 ## 📁 仓库结构
 
