@@ -2,7 +2,7 @@
 
 Welcome to Robot SDK! It provides a comprehensive set of tools, libraries, and documentation designed to help you develop advanced applications for robots.
 
-- **[中文文档](README_cn.md)**
+- **[中文文档](README_zh.md)**
 
 ## 🔗 SDK Version and System Platform Version Compatibility Table
 
@@ -21,6 +21,8 @@ Welcome to Robot SDK! It provides a comprehensive set of tools, libraries, and d
 | 0.1.7(V4)    | ❌    | ❌ | ✅ |✅  |✅  |✅  |✅  |✅  |✅  |
 | 0.1.8(V4)    | ❌    | ❌ | ✅ |✅  |✅  |✅  |✅  |✅  |✅  |
 | 0.1.9(V4)    | ❌    | ❌ | ✅ |✅  |✅  |✅  |✅  |✅  |✅  |
+| 0.2.0(V4)    | ❌    | ❌ | ✅ |✅  |✅  |✅  |✅  |✅  |✅  |
+| 0.2.1(V4)    | ❌    | ❌ | ✅ |✅  |✅  |✅  |✅  |✅  |✅  |
 
 
 ## 🌟 Features
@@ -33,16 +35,16 @@ Follow the steps below to set up your development environment and run the includ
 
 ### System Requirements
 
-- **Operating System**: Ubuntu 22.04+
-- **Build Tools**: CMake 3.8+, GCC 11+
-- **Dependencies**: Boost 1.74+
+- **Operating System**: Ubuntu 22.04
+- **Build Tools**: CMake 3.8+, GCC 11.4
+- **Dependencies**: Boost 1.74
 - **Programming Language**: C++
 
 ### Installation and Setup
 
 1. **Network Configuration**: Connect your computer to the robot's network. The default IP address of the robot is `192.168.234.1` (Wi-Fi).
 
-3. **SDK Libraries**: C++ libraries (`.so` files) are included in the `lib/` directory and organized by architecture (`x86_64`, `aarch64`).
+2. **SDK Libraries**: C++ libraries (`.so` files) are included in the `lib/` directory and organized by architecture (`x86_64`, `aarch64`).
 
 ### Running Demo Programs
 
@@ -62,7 +64,7 @@ cmake ..
 make -j6
 
 # Run the demo program
-./data ${ip} 8081
+./data ${ip} 8082
 ```
 
 ## 📚 Documentation

@@ -39,7 +39,7 @@ All interfaces return `std::error_code` type to indicate operation results:
 **Example:**
 
 ```cpp
-std::error_code ec = sdk.Connect("192.168.234.1", "8081", true);
+std::error_code ec = sdk.Connect("192.168.234.1", "8082", true);
 if (ec) {
     std::cerr << "Connection failed: " << ec.message() << std::endl;
 } else {
@@ -91,7 +91,7 @@ SDK Internal Extended Error Codes
 ```cpp
 SDKClient(ErrorHandler error_callback = [](const std::error_code&) {},
           ConnectionConfig connection_config = ConnectionConfig(),
-          TransportProtocol type = TransportProtocol::WebSocket)
+          TransportProtocol type = TransportProtocol::Udp)
 ```
 
 **Description:**  
@@ -102,7 +102,7 @@ Construct an SDK client object.
 |:--|:--|:--|:--|
 | `error_callback` | `ErrorHandler` | Empty callback | SDK internal communication exception callback function |
 | `connection_config` | `ConnectionConfig` | Default config | Connection configuration parameters |
-| `type` | `TransportProtocol` | `WebSocket` | Transport protocol type |
+| `type` | `TransportProtocol` | `Udp` | Transport protocol type |
 
 **Related Types:**
 - `ConnectionConfig`: Connection configuration, see [Connection Configuration Documentation](sdk_connection_en.md)
@@ -133,6 +133,8 @@ std::error_code Connect(std::string ip, std::string port,
 
 **Description:**  
 Connect to the robot at the specified IP and port.
+
+By default: when using WebSocket, you need to connect to port 8081 of the machine; when using UDP, you need to connect to port 8082 of the machine.
 
 ⚠️ **Note:** 
 
@@ -392,6 +394,24 @@ std::error_code Gait(int timeout_ms = 0,
 
 **Description:**  
 Gait posture, only effective in **general mode**.
+
+**Parameters:**  
+Same as `StandUp`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### DSB - Over the mouse barrier posture
+
+```cpp
+std::error_code DSB(int timeout_ms = 0,
+                     WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Over the mouse barrier posture, only effective in **general mode**.
 
 **Parameters:**  
 Same as `StandUp`
@@ -956,7 +976,7 @@ int main() {
         if (ec) std::cerr << "SDK Error: " << ec.message() << std::endl;
     });
 
-    auto ec = client.Connect("192.168.234.1", "8081", true);
+    auto ec = client.Connect("192.168.234.1", "8082", true);
     if (ec) {
         std::cerr << "Connect failed: " << ec.message() << std::endl;
         return -1;

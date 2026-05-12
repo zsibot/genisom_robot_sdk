@@ -39,7 +39,7 @@ class ROBOT_EXPORT_API SDKClient
 **示例：**
 
 ```cpp
-std::error_code ec = sdk.Connect("192.168.234.1", "8081", true);
+std::error_code ec = sdk.Connect("192.168.234.1", "8082", true);
 if (ec) {
     std::cerr << "连接失败: " << ec.message() << std::endl;
 } else {
@@ -90,7 +90,7 @@ SDK内部扩展错误码
 ```cpp
 SDKClient(ErrorHandler error_callback = [](const std::error_code&) {},
           ConnectionConfig connection_config = ConnectionConfig(),
-          TransportProtocol type = TransportProtocol::WebSocket)
+          TransportProtocol type = TransportProtocol::Udp)
 ```
 
 **说明：**  
@@ -101,11 +101,11 @@ SDKClient(ErrorHandler error_callback = [](const std::error_code&) {},
 |:--|:--|:--|:--|
 | `error_callback` | `ErrorHandler` | 空回调 | SDK 内部通信异常回调函数 |
 | `connection_config` | `ConnectionConfig` | 默认配置 | 连接配置参数 |
-| `type` | `TransportProtocol` | `WebSocket` | 传输协议类型 |
+| `type` | `TransportProtocol` | `Udp` | 传输协议类型 |
 
 **相关类型：**
-- `ConnectionConfig`: 连接配置，详见 [连接配置文档](sdk_connection_cn.md)
-- `TransportProtocol`: 传输协议类型，详见 [连接配置文档](sdk_connection_cn.md)
+- `ConnectionConfig`: 连接配置，详见 [连接配置文档](sdk_connection_zh.md)
+- `TransportProtocol`: 传输协议类型，详见 [连接配置文档](sdk_connection_zh.md)
 
 ---
 
@@ -132,6 +132,8 @@ std::error_code Connect(std::string ip, std::string port,
 
 **说明：**  
 连接到指定 IP 和端口的机器人。
+
+默认情况下：当使用WebSocket时，需要连接机器的8081端口；当使用Udp时，需要连接机器的8082端口；
 
 ⚠️ **注意:** 
 
@@ -210,7 +212,7 @@ ConnectionState GetConnectionState() const
 获取当前详细的连接状态。
 
 **返回值：**  
-`ConnectionState` 枚举值，详见 [连接状态文档](sdk_connection_cn.md)
+`ConnectionState` 枚举值，详见 [连接状态文档](sdk_connection_zh.md)
 
 ---
 
@@ -231,7 +233,7 @@ void SetControlCallback(std::shared_ptr<IControlCallback> control_callback)
 | `control_callback` | `std::shared_ptr<IControlCallback>` | 控制回调对象 |
 
 **相关文档：**  
-详见 [Callback 参考](sdk_callback_cn.md) 中 `IControlCallback` 类的说明。
+详见 [Callback 参考](sdk_callback_zh.md) 中 `IControlCallback` 类的说明。
 
 ---
 
@@ -391,6 +393,24 @@ std::error_code Gait(int timeout_ms = 0,
 
 **说明：**  
 步态姿态，仅在**通用模式**下使用。
+
+**参数：**  
+同 `StandUp`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### DSB - 过挡鼠板姿态
+
+```cpp
+std::error_code DSB(int timeout_ms = 0,
+                     WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+过挡鼠板姿态，仅在**通用模式**下使用。
 
 **参数：**  
 同 `StandUp`
@@ -843,7 +863,7 @@ std::error_code TakeControl(int timeout_ms = 0,
 ```
 
 **说明：**  
-获取机器人的控制权。如果当前 APP 在控制，则无法抢占接管。详见 [sdk控制权归属](sdk_control_ownership_cn.md)
+获取机器人的控制权。如果当前 APP 在控制，则无法抢占接管。详见 [sdk控制权归属](sdk_control_ownership_zh.md)
 
 **参数：**
 | 参数名 | 类型 | 默认值 | 说明 |
@@ -955,7 +975,7 @@ int main() {
         if (ec) std::cerr << "SDK Error: " << ec.message() << std::endl;
     });
 
-    auto ec = client.Connect("192.168.234.1", "8081", true);
+    auto ec = client.Connect("192.168.234.1", "8082", true);
     if (ec) {
         std::cerr << "Connect failed: " << ec.message() << std::endl;
         return -1;

@@ -518,7 +518,7 @@ struct SpeedData
 
 ## 相关文档
 
-- [SDKClient API 文档](sdk_client_api_cn.md) - 客户端接口详细说明
-- [连接配置文档](sdk_connection_cn.md) - 连接参数和状态说明
-- [Callback 回调接口](sdk_callback_cn.md) - 回调接口定义
-- [状态定义文档](sdk_state_cn.md) - 连接状态和运动状态详解
+- [SDKClient API 文档](sdk_client_api_zh.md) - 客户端接口详细说明
+- [连接配置文档](sdk_connection_zh.md) - 连接参数和状态说明
+- [Callback 回调接口](sdk_callback_zh.md) - 回调接口定义
+- [状态定义文档](sdk_state_zh.md) - 连接状态和运动状态详解

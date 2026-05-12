@@ -86,6 +86,9 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for gait command received.
   virtual void OnGait() {}
 
+  /// @brief Acknowledgment for DSB command received.
+  virtual void OnDSB() {}
+
   /// @brief Acknowledgment for reverse head-tail command received.
   virtual void OnReverseHeadTail() {}
 

@@ -139,6 +139,8 @@ class ControlCallback : public IControlCallback {
 
   void OnSlim() override { std::cout << "[CTRL] ✓ Slim" << std::endl; }
 
+  void OnDSB() override { std::cout << "[CTRL] ✓ DSB" << std::endl; }
+
   void OnReverseHeadTail() override {
     std::cout << "[CTRL] ✓ Reverse Head/Tail" << std::endl;
   }
@@ -433,7 +435,7 @@ int main(int argc, char* argv[]) {
   // Parse command line arguments
   if (argc < 3) {
     std::cerr << "Usage: " << argv[0] << " <ip> <port>" << std::endl;
-    std::cerr << "Example: " << argv[0] << " 192.168.234.1 8081" << std::endl;
+    std::cerr << "Example: " << argv[0] << " 192.168.234.1 8082" << std::endl;
     return EXIT_FAILURE;
   }
 

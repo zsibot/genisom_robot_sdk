@@ -3,6 +3,17 @@
 This document records the feature updates, improvements, and bug fixes for each version of the Robot SDK.
 
 ---
+## [v0.1.1] - 2026
+
+### 📝 Notes
+- Improve Documentation.
+- The default transport layer protocol has been changed from WebSocket to UDP.
+- Add original communication protocol document.
+### ✨ New Features
+- Add over the mouse barrier posture.(DSB)
+
+
+---
 ## [v0.1.0] - 2026
 
 ### ✨ New Features
