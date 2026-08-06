@@ -264,24 +264,6 @@ enum class HeadDirection
 
 ---
 
-### SportMode
-
-```cpp
-enum class SportMode
-```
-
-**说明：**  
-机器人运动模式枚举。
-
-| 枚举值 | 整数值 | 说明 |
-|:--|:--|:--|
-| `SPORT_MODE_UNKNOWN` | 0 | 未知 |
-| `SPORT_MODE_GENERAL` | 1 | 通用模式（可移动与一些姿态变换） |
-| `SPORT_MODE_IN_PLACE` | 2 | 原地模式（原地动作） |
-| `SPORT_MODE_STAIR` | 3 | 登阶模式（仅支持移动） |
-
----
-
 ### MotionStatus
 
 ```cpp
@@ -303,9 +285,12 @@ enum class MotionStatus
 | `MOTION_STATUS_LOCKED` | 7 | 锁定状态 |
 | `MOTION_STATUS_CLIMB` | 8 | 爬高台状态 |
 | `MOTION_STATUS_STAIR` | 9 | 登阶状态 |
-| `MOTION_STATUS_SLIM` | 10 | 矦身状态 |
+| `MOTION_STATUS_SLIM` | 10 | 过窄门状态 |
 | `MOTION_STATUS_GAIT` | 11 | 步态状态 |
 | `MOTION_STATUS_DSB` | 12 | DSB 状态 |
+| `MOTION_STATUS_POS_CONTROL` | 13 | 位置控制状态 |
+| `MOTION_STATUS_SK_WALK` | 14 | 同膝状态 |
+| `MOTION_STATUS_SAND` | 15 | 沙地姿态 |
 
 ---
 
@@ -390,7 +375,7 @@ struct CameraBitrateCmd
 ```
 
 **说明：**  
-摄像头码率配置参数。
+摄像头码率配置参数。对应线协议 `type=1019`、`data.target=805`，参数位于 `data.params` 下。
 
 | 成员 | 类型 | 说明 |
 |:--|:--|:--|
@@ -406,7 +391,7 @@ struct CameraBitrateAck
 ```
 
 **说明：**  
-摄像头码率配置参数。
+摄像头码率配置应答。对应线协议 `type=1019`、`data.target=805`；`camera_bps` 以设备实际返回值为准。
 
 | 成员 | 类型 | 说明 |
 |:--|:--|:--|
@@ -517,6 +502,8 @@ struct RobotState
 | `front_fill_light` | `FillLightStatus` | 前补光灯状态 |
 | `back_fill_light` | `FillLightStatus` | 后补光灯状态 |
 | `auto_mode_light` | `bool` | 是否为自动灯光模式 |
+| `obstacle_avoidance` | `bool` | 是否开启停障 |
+| `charging_pile_connected` | `bool` | 是否连接充电桩 |
 | `speed_level` | `SpeedLevel` | 当前速度等级 |
 | `software_emergency_status` | `EmergencyStatus` | 软件急停状态 |
 | `hardware_emergency_status` | `EmergencyStatus` | 硬件急停状态 |
@@ -596,6 +583,51 @@ struct PowerCtrlAck
 |:--|:--|:--|
 | `power` | `PeripheralPower` | 外设电源 |
 | `enable` | `bool` | 开关 |
+
+---
+
+## LED 相关
+
+### LedId
+
+```cpp
+enum class LedId
+```
+
+| 枚举值 | 说明 |
+|:--|:--|
+| `ALL` | 全部 LED |
+| `FRONT` | 前部 LED |
+| `BACK` | 后部 LED |
+
+### LedEffect
+
+```cpp
+enum class LedEffect
+```
+
+| 枚举值 | 协议值 | 说明 |
+|:--|:--|:--|
+| `OFF` | `off` | 关闭 |
+| `ON` | `on` | 常亮 |
+| `BREATH` | `breath` | 呼吸 |
+| `BLINK` | `blink` | 闪烁 |
+| `BLINK_TRANSIENT` | `blink_transient` | 瞬时闪烁 |
+
+### LedCommand
+
+```cpp
+struct LedCommand
+```
+
+| 成员 | 类型 | 说明 |
+|:--|:--|:--|
+| `id` | `LedId` | 灯分组 |
+| `effect` | `LedEffect` | 灯效 |
+| `color` | `LedColor` | RGBA 颜色 |
+| `duration_ms` | `uint32_t` | 灯效周期/闪烁间隔，单位毫秒 |
+
+`LedCommandAck` 字段与 `LedCommand` 相同；`LedAutoModeAck::auto_mode` 表示当前是否自动模式。
 
 ---
 

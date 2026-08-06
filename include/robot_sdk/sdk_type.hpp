@@ -176,6 +176,8 @@ enum class MotionStatus {
   MOTION_STATUS_POS_CONTROL,
   /// @brief SameKnee Walk state.
   MOTION_STATUS_SK_WALK,
+  /// @brief Sand posture state.
+  MOTION_STATUS_SAND,
 };
 
 enum class MachineStatus {
@@ -229,6 +231,48 @@ enum class PeripheralPower {
   M1_12V = 3,
 };
 
+enum class LedId {
+  UNKNOWN = 0,
+  ALL,
+  FRONT,
+  BACK,
+};
+
+enum class LedEffect {
+  UNKNOWN = 0,
+  OFF,
+  ON,
+  BREATH,
+  BLINK,
+  BLINK_TRANSIENT,
+};
+
+struct LedColor {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  uint8_t a;
+};
+
+struct LedCommand {
+  LedId id;
+  LedEffect effect;
+  LedColor color;
+  uint32_t duration_ms;
+};
+
+struct LedCommandAck {
+  LedId id;
+  LedEffect effect;
+  LedColor color;
+  uint32_t duration_ms;
+};
+
+struct LedAutoModeAck {
+  /// @brief true = auto mode, false = manual mode.
+  bool auto_mode;
+};
+
 /// @brief Velocity information.
 struct Speed {
   /// @brief Forward/backward velocity.
@@ -252,6 +296,12 @@ struct RobotState {
 
   /// @brief Auto mode light enabled.
   bool auto_mode_light;
+
+  /// @brief Obstacle avoidance enabled.
+  bool obstacle_avoidance;
+
+  /// @brief Charging pile connected.
+  bool charging_pile_connected;
 
   /// @brief Current speed level.
   SpeedLevel speed_level;
@@ -358,6 +408,7 @@ struct ReleaseControlAck {
 };
 
 /// @brief Camera bitrate configuration command.
+/// Protocol: type=1019, data.target=805.
 struct CameraBitrateCmd {
   /// @brief Camera name: "camera_front" for front camera, "camera_back" for
   /// back camera.
@@ -367,6 +418,7 @@ struct CameraBitrateCmd {
 };
 
 /// @brief Camera bitrate configuration acknowledgment information.
+/// Protocol: type=1019, data.target=805; camera_bps is device-returned value.
 struct CameraBitrateAck {
   /// @brief Camera name: "camera_front" for front camera, "camera_back" for
   /// back camera.

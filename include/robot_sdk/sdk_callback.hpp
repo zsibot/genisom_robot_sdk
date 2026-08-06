@@ -108,6 +108,9 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for SameKnee Walk command received.
   virtual void OnSkWalk() {}
 
+  /// @brief Acknowledgment for sand posture command received.
+  virtual void OnSand() {}
+
   /// @brief Acknowledgment for reverse head-tail command received.
   virtual void OnReverseHeadTail() {}
 
@@ -129,6 +132,10 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for auto mode light command received.
   /// @param on true: enabled; false: disabled.
   virtual void OnAutoModeLight(bool on) {}
+
+  /// @brief Acknowledgment for obstacle avoidance command received.
+  /// @param on true: enabled; false: disabled.
+  virtual void OnObstacleAvoidance(bool on) {}
 
   /// @brief Acknowledgment for illuminance configuration command received.
   /// @param on true: enabled; false: disabled.
@@ -192,6 +199,18 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for peripheral power control command received.
   /// @param ack Peripheral power control acknowledgment information.
   virtual void OnGetPeriphPower(const PowerCtrlAck& ack) {}
+
+  /// @brief Acknowledgment for LED auto/manual mode setting received.
+  /// @param ack LED auto mode acknowledgment information.
+  virtual void OnSetLedAutoMode(const LedAutoModeAck& ack) {}
+
+  /// @brief Acknowledgment for LED auto/manual mode query received.
+  /// @param ack LED auto mode acknowledgment information.
+  virtual void OnGetLedAutoMode(const LedAutoModeAck& ack) {}
+
+  /// @brief Acknowledgment for LED command received.
+  /// @param ack LED command acknowledgment information.
+  virtual void OnSetLedCommand(const LedCommandAck& ack) {}
 
   virtual ~IControlCallback() = default;
 };

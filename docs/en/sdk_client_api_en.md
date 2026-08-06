@@ -297,7 +297,10 @@ std::error_code StandUp(int timeout_ms = 0,
 ```
 
 **Description:**  
-Robot stand up action.
+Commands the robot to stand up. During the stand-up process, the reported
+`MotionStatus` is `MotionStatus::MOTION_STATUS_STAND_UP`. After the robot has
+finished standing up, the reported `MotionStatus` is
+`MotionStatus::MOTION_STATUS_WALK`.
 
 **Parameters:**
 | Parameter Name | Type | Default Value | Description |
@@ -472,6 +475,24 @@ Same as `SoftEmergencyStop`
 
 ---
 
+### Sand - Sand Posture
+
+```cpp
+std::error_code Sand(int timeout_ms = 0,
+                     WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Switch the robot to sand posture, only effective in **general mode**. The underlying protocol action sent by the SDK is `action/snow`. When the device reports `motion_status = snow`, the SDK parses `RobotState::motion_status` as `MotionStatus::MOTION_STATUS_SAND`.
+
+**Parameters:**  
+Same as `StandUp`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
 ### ReverseHeadTail - Reverse Head/Tail
 
 ```cpp
@@ -622,6 +643,24 @@ std::error_code AutoModeLight(bool on, int timeout_ms = 0,
 
 **Description:**  
 Set automatic fill light mode.
+
+**Parameters:**  
+Same as `FrontLight`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### ObstacleAvoidance - Obstacle Avoidance Switch
+
+```cpp
+std::error_code ObstacleAvoidance(bool on, int timeout_ms = 0,
+                                  WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Enable or disable obstacle avoidance.
 
 **Parameters:**  
 Same as `FrontLight`
@@ -982,7 +1021,7 @@ std::error_code UpdateCameraBitrate(
 ```
 
 **Description:**  
-Update camera bitrate.
+Update camera bitrate. The underlying protocol always uses `type=1019`, `data.target=805`, with `camera_name` / `camera_bps` carried under `data.params`.
 
 **Parameters:**
 | Parameter Name | Type | Default Value | Description |
@@ -999,8 +1038,10 @@ Update camera bitrate.
   - `std::errc::operation_canceled`: Operation canceled
 
 **Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+- Wire protocol is fixed to `type=1019`, `data.target=805`
+- `camera_bps` in the acknowledgment is the actual value returned by the device
+- Asynchronous mode: Function return only indicates command sent; send result notified through callback  
+- Synchronous mode: Function return indicates command send result
 
 ---
 
@@ -1214,6 +1255,85 @@ Same as `SetPeriphPower`
 
 **Notes:**  
 The queried state is returned through the corresponding control callback acknowledgment (`OnGetPeriphPower`) in non-blocking workflows.
+
+---
+
+### SetLedAutoMode - Set LED Auto/Manual Mode
+
+```cpp
+std::error_code SetLedAutoMode(
+    bool auto_mode, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Set LED auto/manual mode. `auto_mode=true` enables auto mode, and `false` selects manual mode.
+
+**Parameters:**
+
+| Parameter Name | Type | Default Value | Description |
+|:--|:--|:--|:--|
+| `auto_mode` | `bool` | — | `true`: auto mode; `false`: manual mode |
+| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
+| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+
+**Return Value:**  
+Same as `SetPeriphPower`
+
+**Notes:**  
+In non-blocking workflows, the result is reported through `OnSetLedAutoMode`.
+
+---
+
+### GetLedAutoMode - Get LED Auto/Manual Mode
+
+```cpp
+std::error_code GetLedAutoMode(
+    int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Query whether LED auto mode is currently enabled.
+
+**Parameters:**  
+Same as `SetLedAutoMode`, without the `auto_mode` parameter.
+
+**Return Value:**  
+Same as `SetPeriphPower`
+
+**Notes:**  
+The query result is reported through `OnGetLedAutoMode`.
+
+---
+
+### SetLedCommand - Set LED Effect
+
+```cpp
+std::error_code SetLedCommand(
+    const LedCommand& cmd, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Set the LED group, effect, color, and period. This uses protocol `1019` with `target=812`; `1020` query is not supported for this target.
+
+**Parameters:**
+
+| Parameter Name | Type | Default Value | Description |
+|:--|:--|:--|:--|
+| `cmd` | `LedCommand` | — | LED effect command |
+| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
+| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+
+**Example:**
+```cpp
+LedCommand cmd{LedId::ALL, LedEffect::BLINK, {255, 128, 0, 255}, 300};
+sdk.SetLedCommand(cmd);
+```
+
+**Return Value:**  
+Returns `std::errc::invalid_argument` when `cmd.id` or `cmd.effect` is `UNKNOWN`; otherwise same as `SetPeriphPower`.
 
 ---
 

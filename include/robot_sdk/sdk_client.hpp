@@ -109,6 +109,10 @@ class ROBOT_EXPORT_API SDKClient {
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
+  std::error_code Sand(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
   std::error_code FrontLight(
       bool on, int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
@@ -118,6 +122,10 @@ class ROBOT_EXPORT_API SDKClient {
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
   std::error_code AutoModeLight(
+      bool on, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code ObstacleAvoidance(
       bool on, int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
@@ -207,6 +215,18 @@ class ROBOT_EXPORT_API SDKClient {
 
   std::error_code GetPeriphPower(
       const PowerCtrlCfg& cfg, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code SetLedAutoMode(
+      bool auto_mode, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code GetLedAutoMode(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code SetLedCommand(
+      const LedCommand& cmd, int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
   const std::string& Version() const;

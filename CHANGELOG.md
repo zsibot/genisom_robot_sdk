@@ -3,6 +3,16 @@
 This document records the feature updates, improvements, and bug fixes for each version of the Robot SDK.
 
 ---
+## [v0.2.1] - 2026
+
+### 📝 Notes
+- Added the **ObstacleAvoidance** interface.
+- Add interfaces related to LED control.
+- Added the **Sand** interface.
+- Added status reporting for **charging pile connection** and **obstacle avoidance** to the unit's operational states.
+- Added protocol documentation(v1.3.0).
+
+---
 ## [v0.2.0] - 2026
 
 ### 📝 Notes

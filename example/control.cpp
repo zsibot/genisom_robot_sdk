@@ -35,6 +35,8 @@ static std::atomic<bool> g_running{true};
 static std::atomic<bool> g_front_light_on{false};
 static std::atomic<bool> g_back_light_on{false};
 static std::atomic<bool> g_auto_mode_light_on{false};
+static std::atomic<bool> g_led_auto_mode_on{true};
+static std::atomic<bool> g_obstacle_avoidance_on{false};
 static std::atomic<bool> g_estop_on{false};
 static std::atomic<uint32_t> g_photo_task_id{1};
 
@@ -70,6 +72,7 @@ const std::unordered_map<MotionStatus, const char*> g_motion_status_map = {
     {MotionStatus::MOTION_STATUS_DSB, "DSB"},
     {MotionStatus::MOTION_STATUS_POS_CONTROL, "PosControl"},
     {MotionStatus::MOTION_STATUS_SK_WALK, "SkWalk"},
+    {MotionStatus::MOTION_STATUS_SAND, "Sand"},
     {MotionStatus::MOTION_STATUS_UNKNOWN, "Unknown"}};
 
 const std::unordered_map<MachineStatus, const char*> g_machine_status_map = {
@@ -178,6 +181,8 @@ class ControlCallback : public IControlCallback {
     std::cout << "[CTRL] ✓ SameKnee Walk" << std::endl;
   }
 
+  void OnSand() override { std::cout << "[CTRL] ✓ Sand" << std::endl; }
+
   void OnReverseHeadTail() override {
     std::cout << "[CTRL] ✓ Reverse Head/Tail" << std::endl;
   }
@@ -203,6 +208,12 @@ class ControlCallback : public IControlCallback {
     std::cout << "[CTRL] ✓ Auto Mode Light: " << (on ? "ON" : "OFF")
               << std::endl;
   }
+
+  void OnObstacleAvoidance(bool on) override {
+    std::cout << "[CTRL] ✓ Obstacle Avoidance: " << (on ? "ON" : "OFF")
+              << std::endl;
+  }
+
   void OnTakeControlAck(const TakeControlAck& ack) override {
     if (ack.error_code == 0) {
       std::cout << "[CTRL] ✓ Take Control Success" << std::endl;
@@ -240,6 +251,26 @@ class ControlCallback : public IControlCallback {
   void OnGetPeriphPower(const PowerCtrlAck& ack) override {
     std::cout << "[CTRL] ✓ Get Peripheral Power Control: "
               << (ack.enable ? "ON" : "OFF") << std::endl;
+  }
+
+  void OnSetLedAutoMode(const LedAutoModeAck& ack) override {
+    std::cout << "[CTRL] ✓ Set LED Auto Mode: "
+              << (ack.auto_mode ? "AUTO" : "MANUAL") << std::endl;
+  }
+
+  void OnGetLedAutoMode(const LedAutoModeAck& ack) override {
+    std::cout << "[CTRL] ✓ Get LED Auto Mode: "
+              << (ack.auto_mode ? "AUTO" : "MANUAL") << std::endl;
+  }
+
+  void OnSetLedCommand(const LedCommandAck& ack) override {
+    std::cout << "[CTRL] ✓ Set LED Command: id=" << static_cast<int>(ack.id)
+              << ", effect=" << static_cast<int>(ack.effect) << ", color=("
+              << static_cast<int>(ack.color.r) << ", "
+              << static_cast<int>(ack.color.g) << ", "
+              << static_cast<int>(ack.color.b) << ", "
+              << static_cast<int>(ack.color.a) << ")"
+              << ", duration_ms=" << ack.duration_ms << std::endl;
   }
 };
 
@@ -280,6 +311,14 @@ void PrintRobotState(const RobotState& data) {
                     ? "ON"
                     : "OFF")
             << ", Auto: " << (data.auto_mode_light ? "ON" : "OFF") << std::endl;
+
+  // Safety status
+  std::cout << "[Safety]" << std::endl;
+  std::cout << "  Obstacle Avoidance: "
+            << (data.obstacle_avoidance ? "ON" : "OFF") << std::endl;
+  std::cout << "  Charging Pile: "
+            << (data.charging_pile_connected ? "CONNECTED" : "DISCONNECTED")
+            << std::endl;
 
   // Emergency stop status
   std::cout << "[Emergency]" << std::endl;
@@ -342,15 +381,17 @@ void SendTakePhoto(SDKClient& client, PhotoDeviceId device_id) {
 
   const char* device_name =
       (device_id == PhotoDeviceId::FRONT) ? "front" : "back";
-  auto err = client.TakePhoto(
-      cmd, 0, [task_id = cmd.task_id, device_name](const std::error_code& ec,
-                                                   std::size_t) {
-        if (ec) {
-          std::cerr << "[ERROR] TakePhoto " << device_name
-                    << " command failed, TaskID: " << task_id
-                    << ", Error: " << ec.message() << std::endl;
-        }
-      });
+  auto err = client.TakePhoto(cmd, 0,
+                              [task_id = cmd.task_id, device_name](
+                                  const std::error_code& ec, std::size_t) {
+                                if (ec) {
+                                  std::cerr
+                                      << "[ERROR] TakePhoto " << device_name
+                                      << " command failed, TaskID: " << task_id
+                                      << ", Error: " << ec.message()
+                                      << std::endl;
+                                }
+                              });
   if (err) {
     std::cerr << "[ERROR] TakePhoto " << device_name
               << " command rejected, TaskID: " << cmd.task_id
@@ -358,8 +399,8 @@ void SendTakePhoto(SDKClient& client, PhotoDeviceId device_id) {
     return;
   }
 
-  std::cout << "[CMD] Take photo " << device_name
-            << ", TaskID: " << cmd.task_id << std::endl;
+  std::cout << "[CMD] Take photo " << device_name << ", TaskID: " << cmd.task_id
+            << std::endl;
 }
 
 /**
@@ -376,8 +417,12 @@ void PrintHelp() {
   std::cout << "[Head]     9:Look Left  0:Look Up" << std::endl;
   std::cout << "[Pose]     1:BalanceStandUp  2:CrawlWalk  3:Stair  Z:Stand  "
                "X:Crawl  C:Lie  G:Gait  J:Climb  K:Slim  U:PosControl  /:SkWalk"
+               "  ;:Sand"
             << std::endl;
   std::cout << "[Light]    F:Front  B:Back  N:Auto" << std::endl;
+  std::cout << "[LED]      Shift+N:AutoMode  =:GetAuto  {:BlinkOrange  }:Off"
+            << std::endl;
+  std::cout << "[Safety]   I:ObstacleAvoidance" << std::endl;
   std::cout << "[Photo]    [:Front Camera  ]:Back Camera" << std::endl;
   std::cout << "[System]   E:E-Stop  M:Lock  V:Reverse Head/Tail" << std::endl;
   std::cout << "[Control]  T:TakeControl Y:ReleaseControl Space:Stop  O:Status "
@@ -436,6 +481,7 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
       {'k', [](SDKClient& client) { client.Slim(); }},        // Slim
       {'u', [](SDKClient& client) { client.PosControl(); }},  // PosControl
       {'/', [](SDKClient& client) { client.SkWalk(); }},      // SkWalk
+      {';', [](SDKClient& client) { client.Sand(); }},        // Sand
 
       {'+',
        [](SDKClient& client) {
@@ -495,6 +541,84 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
          bool new_state = !g_auto_mode_light_on.load();
          g_auto_mode_light_on = new_state;
          client.AutoModeLight(new_state);
+       }},
+      {'N',
+       [](SDKClient& client) {  // LED auto/manual mode
+         bool new_state = !g_led_auto_mode_on.load();
+         g_led_auto_mode_on = new_state;
+         auto err = client.SetLedAutoMode(
+             new_state, 0, [](const std::error_code& ec, std::size_t) {
+               if (ec) {
+                 std::cerr << "[ERROR] SetLedAutoMode command failed: "
+                           << ec.message() << std::endl;
+               }
+             });
+         if (err) {
+           std::cerr << "[ERROR] SetLedAutoMode command rejected: "
+                     << err.message() << std::endl;
+         }
+       }},
+      {'=',
+       [](SDKClient& client) {  // Get LED auto/manual mode
+         auto err = client.GetLedAutoMode(
+             0, [](const std::error_code& ec, std::size_t) {
+               if (ec) {
+                 std::cerr << "[ERROR] GetLedAutoMode command failed: "
+                           << ec.message() << std::endl;
+               }
+             });
+         if (err) {
+           std::cerr << "[ERROR] GetLedAutoMode command rejected: "
+                     << err.message() << std::endl;
+         }
+       }},
+      {'{',
+       [](SDKClient& client) {  // LED blink orange
+         LedCommand cmd{LedId::ALL, LedEffect::BLINK, {255, 128, 0, 255}, 1000};
+         auto err = client.SetLedCommand(
+             cmd, 0, [](const std::error_code& ec, std::size_t) {
+               if (ec) {
+                 std::cerr << "[ERROR] SetLedCommand blink failed: "
+                           << ec.message() << std::endl;
+               }
+             });
+         if (err) {
+           std::cerr << "[ERROR] SetLedCommand blink rejected: "
+                     << err.message() << std::endl;
+         }
+       }},
+      {'}',
+       [](SDKClient& client) {  // LED off
+         LedCommand cmd{LedId::ALL, LedEffect::OFF, {0, 0, 0, 255}, 0};
+         auto err = client.SetLedCommand(
+             cmd, 0, [](const std::error_code& ec, std::size_t) {
+               if (ec) {
+                 std::cerr << "[ERROR] SetLedCommand off failed: "
+                           << ec.message() << std::endl;
+               }
+             });
+         if (err) {
+           std::cerr << "[ERROR] SetLedCommand off rejected: " << err.message()
+                     << std::endl;
+         }
+       }},
+
+      // ============ Safety Test ============
+      {'i',
+       [](SDKClient& client) {  // Obstacle avoidance
+         bool new_state = !g_obstacle_avoidance_on.load();
+         g_obstacle_avoidance_on = new_state;
+         auto err = client.ObstacleAvoidance(
+             new_state, 0, [](const std::error_code& ec, std::size_t) {
+               if (ec) {
+                 std::cerr << "[ERROR] ObstacleAvoidance command failed: "
+                           << ec.message() << std::endl;
+               }
+             });
+         if (err) {
+           std::cerr << "[ERROR] ObstacleAvoidance command rejected: "
+                     << err.message() << std::endl;
+         }
        }},
 
       // ============ Photo Test ============

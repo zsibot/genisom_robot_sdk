@@ -300,7 +300,9 @@ std::error_code StandUp(int timeout_ms = 0,
 ```
 
 **说明：**  
-机器人站立动作。
+机器人站立动作。站立过程中上报的 `MotionStatus` 为
+`MotionStatus::MOTION_STATUS_STAND_UP`；站立完成后上报的 `MotionStatus` 为
+`MotionStatus::MOTION_STATUS_WALK`。
 
 **参数：**
 | 参数名 | 类型 | 默认值 | 说明 |
@@ -511,6 +513,24 @@ std::error_code SkWalk(int timeout_ms = 0,
 
 ---
 
+### Sand - 沙地姿态
+
+```cpp
+std::error_code Sand(int timeout_ms = 0,
+                     WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+切换机器人到沙地姿态，仅在**通用模式**下使用。底层下发协议动作为 `action/snow`。设备侧当上报 `motion_status = snow` 时，SDK 会将 `RobotState::motion_status` 解析为 `MotionStatus::MOTION_STATUS_SAND`。
+
+**参数：**  
+同 `StandUp`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
 ### ReverseHeadTail - 调转头尾
 
 ```cpp
@@ -661,6 +681,24 @@ std::error_code AutoModeLight(bool on, int timeout_ms = 0,
 
 **说明：**  
 设置自动补光灯模式。
+
+**参数：**  
+同 `FrontLight`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### ObstacleAvoidance - 停障开关
+
+```cpp
+std::error_code ObstacleAvoidance(bool on, int timeout_ms = 0,
+                                  WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+开启或关闭停障功能。
 
 **参数：**  
 同 `FrontLight`
@@ -1021,7 +1059,7 @@ std::error_code UpdateCameraBitrate(
 ```
 
 **说明：**  
-更新摄像头码率。
+更新摄像头码率。底层协议固定使用 `type=1019`、`data.target=805`，并将 `camera_name` / `camera_bps` 放在 `data.params` 下。
 
 **参数：**
 | 参数名 | 类型 | 默认值 | 说明 |
@@ -1038,8 +1076,10 @@ std::error_code UpdateCameraBitrate(
   - `std::errc::operation_canceled`: 操作已取消
 
 **注意：**  
-异步模式：函数返回仅表示命令已发送，发送结果通过回调函数通知  
-同步模式：函数返回即表示命令发送结果
+- 线协议固定为 `type=1019`、`data.target=805`
+- 应答中的 `camera_bps` 以设备实际返回值为准
+- 异步模式：函数返回仅表示命令已发送，发送结果通过回调函数通知  
+- 同步模式：函数返回即表示命令发送结果
 
 ---
 
@@ -1251,6 +1291,83 @@ std::error_code GetPeriphPower(
 
 **注意：**  
 在非阻塞工作流下，查询到的外设电源状态会通过对应的控制回调 `OnGetPeriphPower` 返回。
+
+---
+
+### SetLedAutoMode - 设置 LED 自动/手动模式
+
+```cpp
+std::error_code SetLedAutoMode(
+    bool auto_mode, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {});
+```
+
+**说明：**  
+设置 LED 自动/手动模式。`auto_mode=true` 表示自动模式，`false` 表示手动模式。
+
+**参数：**
+| 参数名 | 类型 | 默认值 | 说明 |
+|:--|:--|:--|:--|
+| `auto_mode` | `bool` | - | `true`: 自动模式；`false`: 手动模式 |
+| `timeout_ms` | `int` | `0` | `0`: 异步模式；`> 0`: 同步模式，最大等待时间（毫秒） |
+| `handler` | `WriteHandler` | 空回调 | 异步模式下命令发送结果回调函数；同步模式不使用 |
+
+**返回值：**  
+同 `SetPeriphPower`
+
+**注意：**  
+非阻塞工作流下，设置结果通过 `OnSetLedAutoMode` 返回。
+
+---
+
+### GetLedAutoMode - 查询 LED 自动/手动模式
+
+```cpp
+std::error_code GetLedAutoMode(
+    int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {});
+```
+
+**说明：**  
+查询当前 LED 是否处于自动模式。
+
+**参数：**  
+同 `SetLedAutoMode`，但无需 `auto_mode` 参数。
+
+**返回值：**  
+同 `SetPeriphPower`
+
+**注意：**  
+查询结果通过 `OnGetLedAutoMode` 返回。
+
+---
+
+### SetLedCommand - 设置 LED 灯效
+
+```cpp
+std::error_code SetLedCommand(
+    const LedCommand& cmd, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {});
+```
+
+**说明：**  
+设置 LED 分组、灯效、颜色和周期。对应协议 `1019` 的 `target=812`，不支持 `1020` 查询。
+
+**参数：**
+| 参数名 | 类型 | 默认值 | 说明 |
+|:--|:--|:--|:--|
+| `cmd` | `LedCommand` | - | LED 灯效命令 |
+| `timeout_ms` | `int` | `0` | `0`: 异步模式；`> 0`: 同步模式，最大等待时间（毫秒） |
+| `handler` | `WriteHandler` | 空回调 | 异步模式下命令发送结果回调函数；同步模式不使用 |
+
+**示例：**
+```cpp
+LedCommand cmd{LedId::ALL, LedEffect::BLINK, {255, 128, 0, 255}, 300};
+sdk.SetLedCommand(cmd);
+```
+
+**返回值：**  
+`cmd.id` 或 `cmd.effect` 为 `UNKNOWN` 时返回 `std::errc::invalid_argument`；其他同 `SetPeriphPower`。
 
 ---
 

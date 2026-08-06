@@ -79,6 +79,7 @@ const std::unordered_map<MotionStatus, const char*> g_motion_status_map = {
     {MotionStatus::MOTION_STATUS_DSB, "DSB"},
     {MotionStatus::MOTION_STATUS_POS_CONTROL, "PosControl"},
     {MotionStatus::MOTION_STATUS_SK_WALK, "SkWalk"},
+    {MotionStatus::MOTION_STATUS_SAND, "Sand"},
     {MotionStatus::MOTION_STATUS_UNKNOWN, "Unknown"}};
 
 const std::unordered_map<MachineStatus, const char*> g_machine_status_map = {
@@ -209,6 +210,14 @@ void PrintRobotState(const RobotState& data) {
                     ? "ON"
                     : "OFF")
             << ", Auto: " << (data.auto_mode_light ? "ON" : "OFF") << std::endl;
+
+  // Safety status
+  std::cout << "[Safety]" << std::endl;
+  std::cout << "  Obstacle Avoidance: "
+            << (data.obstacle_avoidance ? "ON" : "OFF") << std::endl;
+  std::cout << "  Charging Pile: "
+            << (data.charging_pile_connected ? "CONNECTED" : "DISCONNECTED")
+            << std::endl;
 
   // Emergency stop status
   std::cout << "[Emergency]" << std::endl;

@@ -108,12 +108,14 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnDSB() {}
   virtual void OnPosControl() {}
   virtual void OnSkWalk() {}
+  virtual void OnSand() {}
   virtual void OnReverseHeadTail() {}
   virtual void OnSpeed(int speed_level) {}
   virtual void OnLocked() {}
   virtual void OnFrontLight(bool on) {}
   virtual void OnBackLight(bool on) {}
   virtual void OnAutoModeLight(bool on) {}
+  virtual void OnObstacleAvoidance(bool on) {}
   virtual void OnLuxConfig(bool on) {}
   virtual void OnImuConfig(int freq) {}
   virtual void OnMcConfig(bool on) {}
@@ -131,6 +133,9 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnStopUnDockTask() {}
   virtual void OnSetPeriphPower(const PowerCtrlAck& ack) {}
   virtual void OnGetPeriphPower(const PowerCtrlAck& ack) {}
+  virtual void OnSetLedAutoMode(const LedAutoModeAck& ack) {}
+  virtual void OnGetLedAutoMode(const LedAutoModeAck& ack) {}
+  virtual void OnSetLedCommand(const LedCommandAck& ack) {}
 
   virtual ~IControlCallback() = default;
 };
@@ -155,12 +160,14 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnDSB()` | 已收到挡鼠板命令 | — |
 | `OnPosControl()` | 已收到位控姿态命令 | — |
 | `OnSkWalk()` | 已收到同膝姿态命令 | — |
+| `OnSand()` | 已收到沙地姿态命令 | — |
 | `OnReverseHeadTail()` | 已收到调转头尾命令 | — |
 | `OnSpeed(int speed_level)` | 已收到速度切换命令 | 速度档位 |
 | `OnLocked()` | 已收到锁定命令 | — |
 | `OnFrontLight(bool on)` | 已收到前补光灯命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
 | `OnBackLight(bool on)` | 已收到后补光灯命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
 | `OnAutoModeLight(bool on)` | 已收到自动补光灯模式命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
+| `OnObstacleAvoidance(bool on)` | 已收到停障开关命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
 | `OnLuxConfig(bool on)` | 已收到光强值配置命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
 | `OnImuConfig(int freq)` | 已收到 IMU 配置命令 | 频率值 |
 | `OnMcConfig(bool on)` | 已收到运动数据配置命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
@@ -178,6 +185,9 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnStopUnDockTask()` | 机器人已退出脱离充电桩模式 | — |
 | `OnSetPeriphPower(const PowerCtrlAck& ack)` | 机器人已收到设置外设电源命令 | `ack` 内部返回下发的命令 |
 | `OnGetPeriphPower(const PowerCtrlAck& ack)` | 机器人已收到获取外设电源命令 | `ack` 内部表示当前外设电源状态 |
+| `OnSetLedAutoMode(const LedAutoModeAck& ack)` | 机器人已收到设置 LED 自动/手动模式命令 | `ack.auto_mode` 表示当前模式 |
+| `OnGetLedAutoMode(const LedAutoModeAck& ack)` | 机器人已收到查询 LED 自动/手动模式命令 | `ack.auto_mode` 表示当前模式 |
+| `OnSetLedCommand(const LedCommandAck& ack)` | 机器人已收到设置 LED 灯效命令 | `ack` 返回灯分组、灯效、颜色和周期 |
 
 ---
 
@@ -197,6 +207,10 @@ class MyControlCallback : public robot_sdk::IControlCallback {
  public:
   void OnStandUp() override {
     // 收到站立命令应答
+  }
+
+  void OnSand() override {
+    // 收到沙地姿态命令应答
   }
 };
 ```

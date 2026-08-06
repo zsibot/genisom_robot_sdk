@@ -109,12 +109,14 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnDSB() {}
   virtual void OnPosControl() {}
   virtual void OnSkWalk() {}
+  virtual void OnSand() {}
   virtual void OnReverseHeadTail() {}
   virtual void OnSpeed(int speed_level) {}
   virtual void OnLocked() {}
   virtual void OnFrontLight(bool on) {}
   virtual void OnBackLight(bool on) {}
   virtual void OnAutoModeLight(bool on) {}
+  virtual void OnObstacleAvoidance(bool on) {}
   virtual void OnLuxConfig(bool on) {}
   virtual void OnImuConfig(int freq) {}
   virtual void OnMcConfig(bool on) {}
@@ -132,6 +134,9 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnStopUnDockTask() {}
   virtual void OnSetPeriphPower(const PowerCtrlAck& ack) {}
   virtual void OnGetPeriphPower(const PowerCtrlAck& ack) {}
+  virtual void OnSetLedAutoMode(const LedAutoModeAck& ack) {}
+  virtual void OnGetLedAutoMode(const LedAutoModeAck& ack) {}
+  virtual void OnSetLedCommand(const LedCommandAck& ack) {}
 
   virtual ~IControlCallback() = default;
 };
@@ -156,12 +161,14 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnDSB()` | Acknowledgment that the DSB mode command was received | — |
 | `OnPosControl()` | Acknowledgment that the position control mode command was received | — |
 | `OnSkWalk()` | Acknowledgment that the SkWalk mode command was received | — |
+| `OnSand()` | Acknowledgment that the sand posture command was received | — |
 | `OnReverseHeadTail()` | Acknowledgment that the head-tail reverse command was received | — |
 | `OnSpeed(int speed_level)` | Acknowledgment that the speed level switch command was received | Speed level |
 | `OnLocked()` | Acknowledgment that the lock command was received | — |
 | `OnFrontLight(bool on)` | Acknowledgment that the front fill light command was received | `true`: on; `false`: off |
 | `OnBackLight(bool on)` | Acknowledgment that the rear fill light command was received | `true`: on; `false`: off |
 | `OnAutoModeLight(bool on)` | Acknowledgment that the automatic fill light mode command was received | `true`: enable; `false`: disable |
+| `OnObstacleAvoidance(bool on)` | Acknowledgment that the obstacle avoidance command was received | `true`: enable; `false`: disable |
 | `OnLuxConfig(bool on)` | Acknowledgment that the illuminance reporting configuration command was received | `true`: enable; `false`: disable |
 | `OnImuConfig(int freq)` | Acknowledgment that the IMU reporting configuration command was received | Frequency value |
 | `OnMcConfig(bool on)` | Acknowledgment that the motion data reporting configuration command was received | `true`: enable; `false`: disable |
@@ -179,6 +186,9 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnStopUnDockTask()` | Notification that the robot has exited undock mode | — |
 | `OnSetPeriphPower(const PowerCtrlAck& ack)` | Acknowledgment for the peripheral power setting command | The `ack` contains the power channel and the target switch state |
 | `OnGetPeriphPower(const PowerCtrlAck& ack)` | Acknowledgment for the peripheral power query command | The `ack` contains the current power channel state |
+| `OnSetLedAutoMode(const LedAutoModeAck& ack)` | Acknowledgment for setting LED auto/manual mode | `ack.auto_mode` indicates the current mode |
+| `OnGetLedAutoMode(const LedAutoModeAck& ack)` | Acknowledgment for querying LED auto/manual mode | `ack.auto_mode` indicates the current mode |
+| `OnSetLedCommand(const LedCommandAck& ack)` | Acknowledgment for setting the LED effect | The `ack` contains LED group, effect, color, and period |
 
 ---
 
@@ -198,6 +208,10 @@ class MyControlCallback : public robot_sdk::IControlCallback {
  public:
   void OnStandUp() override {
     // Handle stand up command acknowledgment
+  }
+
+  void OnSand() override {
+    // Handle sand posture command acknowledgment
   }
 };
 ```

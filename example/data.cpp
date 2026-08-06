@@ -95,6 +95,11 @@ class DataCallback : public IDataCallback {
     std::cout << "  Lights: Front=" << static_cast<int>(data.front_fill_light)
               << " Back=" << static_cast<int>(data.back_fill_light)
               << std::endl;
+    std::cout << "  Obstacle Avoidance: "
+              << (data.obstacle_avoidance ? "ON" : "OFF") << std::endl;
+    std::cout << "  Charging Pile: "
+              << (data.charging_pile_connected ? "CONNECTED" : "DISCONNECTED")
+              << std::endl;
     std::cout << "  Speed Level: " << static_cast<int>(data.speed_level)
               << ", E-Stop: SW="
               << static_cast<int>(data.software_emergency_status)

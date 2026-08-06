@@ -195,7 +195,15 @@ enum class FillLightStatus
 ```
 
 **Description:**  
-Fill light status.
+Fill light status enumeration.
+
+| Enum Value | Integer Value | Description |
+|:--|:--|:--|
+| `FILL_LIGHT_STATUS_UNKNOWN` | 0 | Unknown state |
+| `FILL_LIGHT_STATUS_ON` | 1 | Fill light on |
+| `FILL_LIGHT_STATUS_OFF` | 2 | Fill light off |
+
+---
 
 ### SpeedLevel
 
@@ -204,7 +212,88 @@ enum class SpeedLevel
 ```
 
 **Description:**  
-Robot speed level.
+Speed level enumeration. The selected level affects the speed limits of the
+`Move` command.
+
+| Enum Value | Integer Value | Description |
+|:--|:--|:--|
+| `SPEED_LEVEL_UNKNOWN` | 0 | Unknown |
+| `SPEED_LEVEL_SLOW` | 1 | Low speed |
+| `SPEED_LEVEL_MEDIUM` | 2 | Medium speed |
+| `SPEED_LEVEL_HIGH` | 3 | High speed |
+
+**Speed limits:**
+
+| Level | vx (forward/backward) | vy (left/right) | vyaw (rotation) |
+|:--|:--|:--|:--|
+| Low | -0.5 to +0.5 m/s | -1.0 to +1.0 m/s | -2.0 to +2.0 rad/s |
+| Medium | 0 m/s | -2.0 to +2.0 m/s | -1.5 to +1.5 rad/s |
+| High | 0 m/s | -3.0 to +3.0 m/s | -1.0 to +1.0 rad/s |
+
+---
+
+### EmergencyStatus
+
+```cpp
+enum class EmergencyStatus
+```
+
+**Description:** Emergency-stop status enumeration.
+
+| Enum Value | Integer Value | Description |
+|:--|:--|:--|
+| `EMERGENCY_STATUS_UNKNOWN` | 0 | Unknown |
+| `EMERGENCY_STATUS_RECOVER` | 1 | Emergency stop released |
+| `EMERGENCY_STATUS_STOP` | 2 | Emergency stop activated |
+
+---
+
+### HeadDirection
+
+```cpp
+enum class HeadDirection
+```
+
+**Description:** Robot head/tail direction enumeration.
+
+| Enum Value | Integer Value | Description |
+|:--|:--|:--|
+| `HEAD_DIRECTION_UNKNOWN` | 0 | Unknown |
+| `HEAD_DIRECTION_HEAD` | 1 | Head faces forward |
+| `HEAD_DIRECTION_TAIL` | 2 | Tail faces forward |
+
+---
+
+### MotionStatus
+
+```cpp
+enum class MotionStatus
+```
+
+**Description:** Robot motion status enumeration.
+
+| Enum Value | Integer Value | Description |
+|:--|:--|:--|
+| `MOTION_STATUS_UNKNOWN` | 0 | Unknown |
+| `MOTION_STATUS_STAND_UP` | 1 | Standing up |
+| `MOTION_STATUS_WALK` | 2 | Walking |
+| `MOTION_STATUS_BALANCE_STAND` | 3 | Balance standing |
+| `MOTION_STATUS_LIE_DOWN` | 4 | Lying down |
+| `MOTION_STATUS_CRAWL` | 5 | Crawling posture |
+| `MOTION_STATUS_CRAWL_WALK` | 6 | Crawl walking |
+| `MOTION_STATUS_LOCKED` | 7 | Locked |
+| `MOTION_STATUS_CLIMB` | 8 | Climbing a high platform |
+| `MOTION_STATUS_STAIR` | 9 | Stair-climbing mode |
+| `MOTION_STATUS_SLIM` | 10 | Narrow-passage mode |
+| `MOTION_STATUS_GAIT` | 11 | Gait mode |
+| `MOTION_STATUS_DSB` | 12 | DSB mode |
+| `MOTION_STATUS_POS_CONTROL` | 13 | Position-control mode |
+| `MOTION_STATUS_SK_WALK` | 14 | Same-knee walking mode |
+| `MOTION_STATUS_SAND` | 15 | Sand posture |
+
+---
+
+## Control-Related
 
 ### CtrlSource
 
@@ -213,71 +302,100 @@ enum class CtrlSource
 ```
 
 **Description:**  
-Robot control source.
+Robot control source enumeration.
 
-### MachineStatus
-
-```cpp
-enum class MachineStatus
-```
-
-**Description:**  
-Robot machine running status.
+| Enum Value | Integer Value | Description |
+|:--|:--|:--|
+| `CTRL_SOURCE_UNKNOWN` | 0 | Unknown |
+| `CTRL_SOURCE_APP` | 1 | App control |
+| `CTRL_SOURCE_SDK` | 2 | SDK control |
+| `CTRL_SOURCE_OTHER` | 3 | Other control source |
 
 ---
 
-## Robot State Data
-
-### Speed
+### ControlLostInfo
 
 ```cpp
-struct Speed
+struct ControlLostInfo
 ```
 
 **Description:**  
-Current robot speed information.
+Control ownership lost information.
 
-### RobotState
+---
+
+### ControlAvailableInfo
 
 ```cpp
-struct RobotState
+struct ControlAvailableInfo
+```
+
+**Description:** Control ownership availability information.
+
+---
+
+### TakeControlAck
+
+```cpp
+struct TakeControlAck
 ```
 
 **Description:**  
-Robot state information structure.
+Acknowledgment information for a take-control command.
 
 | Member | Type | Description |
 |:--|:--|:--|
-| `fill_light_status` | `FillLightStatus` | Fill light status |
-| `speed_level` | `SpeedLevel` | Speed level |
-| `machine_status` | `MachineStatus` | Machine running status |
-| `battery` | `BatteryData` | Battery information |
-| `speed` | `Speed` | Current speed |
-| `mile_data` | `float` | Cumulative mileage data (m) |
-| `joint_temps` | `std::unordered_map<std::string, double>` | Joint temperature map `<joint name, joint temperature>` in °C |
-| `control_source` | `CtrlSource` | Control source |
+| `error_code` | `uint32_t` | Error code (`0` means success; non-zero means failure) |
+| `reason` | `std::string` | Failure reason description |
 
 ---
 
-### JointStateData
+### ReleaseControlAck
 
 ```cpp
-struct JointStateData
+struct ReleaseControlAck
 ```
 
 **Description:**  
-Joint state data structure.
+Acknowledgment information for a release-control command.
 
 | Member | Type | Description |
 |:--|:--|:--|
-| `names` | `std::vector<std::string>` | Joint names |
-| `positions` | `std::vector<double>` | Joint positions (rad) |
-| `velocities` | `std::vector<double>` | Joint velocities (rad/s) |
-| `efforts` | `std::vector<double>` | Joint efforts (N·m) |
+| `error_code` | `uint32_t` | Error code (`0` means success; non-zero means failure) |
+| `reason` | `std::string` | Failure reason description |
 
 ---
 
-## Camera-Related
+### CameraBitrateCmd
+
+```cpp
+struct CameraBitrateCmd
+```
+
+**Description:**  
+Camera bitrate configuration parameters. This maps to wire protocol `type=1019`, `data.target=805`, with fields carried under `data.params`.
+
+| Member | Type | Description |
+|:--|:--|:--|
+| `camera_name` | `std::string` | Camera name: `"camera_front"` for the front camera or `"camera_back"` for the rear camera |
+| `camera_bps` | `uint32_t` | Camera bitrate in bit/s; valid range: 50,000–100,000,000 |
+
+---
+
+### CameraBitrateAck
+
+```cpp
+struct CameraBitrateAck
+```
+
+**Description:** Camera bitrate configuration acknowledgment. This maps to wire protocol `type=1019`, `data.target=805`; `camera_bps` is the actual value returned by the device.
+
+| Member | Type | Description |
+|:--|:--|:--|
+| `camera_name` | `std::string` | Camera name: `"camera_front"` for the front camera or `"camera_back"` for the rear camera |
+| `camera_bps` | `uint32_t` | Camera bitrate in bit/s; valid range: 50,000–100,000,000 |
+
+---
 
 ### PhotoDeviceId
 
@@ -291,7 +409,7 @@ Photo device ID.
 | Enum Value | Integer Value | Description |
 |:--|:--|:--|
 | `FRONT` | 0 | Front camera |
-| `BACK` | 1 | Back camera |
+| `BACK` | 1 | Rear camera |
 
 ---
 
@@ -307,7 +425,7 @@ Take-photo command parameters.
 | Member | Type | Description |
 |:--|:--|:--|
 | `task_id` | `uint32_t` | Task ID supplied by the caller and used to match the acknowledgment |
-| `device_id` | `uint32_t` | Device ID, `0`: front camera, `1`: back camera |
+| `device_id` | `uint32_t` | Device ID: `0` for the front camera, `1` for the rear camera |
 
 ---
 
@@ -322,14 +440,94 @@ Take-photo command acknowledgment information.
 
 | Member | Type | Description |
 |:--|:--|:--|
-| `task_id` | `uint32_t` | Task ID matching the request |
-| `device_id` | `uint32_t` | Device ID, `0`: front camera, `1`: back camera |
-| `error_code` | `uint32_t` | Error code, `0` means success and non-zero means failure |
+| `task_id` | `uint32_t` | Task ID matching `task_id` in the request |
+| `device_id` | `uint32_t` | Device ID: `0` for the front camera, `1` for the rear camera |
+| `error_code` | `uint32_t` | Error code; `0` means success and non-zero means failure |
 | `reason` | `std::string` | Failure reason description |
 
 ---
 
-## Peripheral Power
+### Speed
+
+```cpp
+struct Speed
+```
+
+**Description:** Current robot speed information.
+
+| Member | Type | Description |
+|:--|:--|:--|
+| `line` | `double` | Forward/backward speed (m/s) |
+| `translation` | `double` | Left/right translational speed (m/s) |
+| `angle` | `double` | Turning angular speed (rad/s) |
+
+---
+
+### Joint Temperature Reference
+
+```cpp
+std::unordered_map<std::string, double>
+```
+
+**Description:** Map of robot joint names to joint temperatures.
+
+The wheel-leg joint names are listed below.
+
+| Name | Description |
+|:--|:--|
+| `fl1`, `fl2`, `fl3`, `fl4` | Front-left leg joints 1–4 |
+| `fr1`, `fr2`, `fr3`, `fr4` | Front-right leg joints 1–4 |
+| `bl1`, `bl2`, `bl3`, `bl4` | Rear-left leg joints 1–4 |
+| `br1`, `br2`, `br3`, `br4` | Rear-right leg joints 1–4 |
+
+---
+
+### RobotState
+
+```cpp
+struct RobotState
+```
+
+**Description:** Robot state information structure.
+
+| Member | Type | Description |
+|:--|:--|:--|
+| `head_angle` | `double` | Head angle (rad) |
+| `front_fill_light` | `FillLightStatus` | Front fill light status |
+| `back_fill_light` | `FillLightStatus` | Rear fill light status |
+| `auto_mode_light` | `bool` | Whether automatic lighting mode is enabled |
+| `obstacle_avoidance` | `bool` | Whether obstacle avoidance is enabled |
+| `charging_pile_connected` | `bool` | Whether the charging pile is connected |
+| `speed_level` | `SpeedLevel` | Current speed level |
+| `software_emergency_status` | `EmergencyStatus` | Software emergency-stop status |
+| `hardware_emergency_status` | `EmergencyStatus` | Hardware emergency-stop status |
+| `head_direction` | `HeadDirection` | Current head/tail direction |
+| `motion_status` | `MotionStatus` | Current motion status |
+| `machine_status` | `MachineStatus` | Machine running status |
+| `battery` | `BatteryData` | Battery information |
+| `speed` | `Speed` | Current speed |
+| `mile_data` | `float` | Cumulative mileage data (m) |
+| `joint_temps` | `std::unordered_map<std::string, double>` | Joint temperature map `<joint name, joint temperature>` in °C |
+| `control_source` | `CtrlSource` | Control source |
+
+---
+
+### JointStateData
+
+```cpp
+struct JointStateData
+```
+
+**Description:** Joint state data structure.
+
+| Member | Type | Description |
+|:--|:--|:--|
+| `names` | `std::vector<std::string>` | Joint names |
+| `positions` | `std::vector<double>` | Joint positions (rad) |
+| `velocities` | `std::vector<double>` | Joint velocities (rad/s) |
+| `efforts` | `std::vector<double>` | Joint efforts (N·m) |
+
+---
 
 ### PeripheralPower
 
@@ -378,6 +576,51 @@ Peripheral power control acknowledgment structure.
 |:--|:--|:--|
 | `power` | `PeripheralPower` | Peripheral power channel |
 | `enable` | `bool` | Switch state |
+
+---
+
+## LED
+
+### LedId
+
+```cpp
+enum class LedId
+```
+
+| Enum Value | Description |
+|:--|:--|
+| `ALL` | All LEDs |
+| `FRONT` | Front LEDs |
+| `BACK` | Back LEDs |
+
+### LedEffect
+
+```cpp
+enum class LedEffect
+```
+
+| Enum Value | Protocol Value | Description |
+|:--|:--|:--|
+| `OFF` | `off` | Off |
+| `ON` | `on` | Solid on |
+| `BREATH` | `breath` | Breathing |
+| `BLINK` | `blink` | Blinking |
+| `BLINK_TRANSIENT` | `blink_transient` | Transient blinking |
+
+### LedCommand
+
+```cpp
+struct LedCommand
+```
+
+| Member | Type | Description |
+|:--|:--|:--|
+| `id` | `LedId` | LED group |
+| `effect` | `LedEffect` | LED effect |
+| `color` | `LedColor` | RGBA color |
+| `duration_ms` | `uint32_t` | Effect period / blink interval in milliseconds |
+
+`LedCommandAck` has the same fields as `LedCommand`; `LedAutoModeAck::auto_mode` indicates whether LED auto mode is enabled.
 
 ---
 
