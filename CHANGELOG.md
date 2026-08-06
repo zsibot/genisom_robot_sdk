@@ -3,6 +3,18 @@
 This document records the feature updates, improvements, and bug fixes for each version of the Robot SDK.
 
 ---
+## [v0.2.0] - 2026
+
+### 📝 Notes
+- Added the **Same-Knee Posture** interface.
+- Added **Start Docking Charge** and **Stop Docking Charge** interfaces.
+- Removed the **Mode** concept and its related interfaces.
+- Added the **Position Control** interface.
+- Added **Start Undocking** and **Stop Undocking** interfaces.
+- Added **Set Peripheral Power** and **Get Peripheral Power Status** interfaces.
+- Added **Take Photo** interfaces.
+
+---
 ## [v0.1.1] - 2026
 
 ### 📝 Notes

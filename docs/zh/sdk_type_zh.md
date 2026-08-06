@@ -42,7 +42,6 @@ enum class FaultCode
 
 **说明：**  
 机器人系统中可能出现的故障码。
-机器人系统中可能出现的故障码。
 
 | 枚举值 | 说明 |
 |:--|:--|
@@ -296,15 +295,17 @@ enum class MotionStatus
 |:--|:--|:--|
 | `MOTION_STATUS_UNKNOWN` | 0 | 未知 |
 | `MOTION_STATUS_STAND_UP` | 1 | 站立中 |
-| `MOTION_STATUS_LIE_DOWN` | 2 | 卧倒状态 |
-| `MOTION_STATUS_CRAWL` | 3 | 匍匐状态 |
-| `MOTION_STATUS_LOCKED` | 4 | 锁定状态 |
-| `MOTION_STATUS_GENERAL` | 5 | 通用模式运动状态 |
-| `MOTION_STATUS_IN_PLACE` | 6 | 原地模式运动状态 |
-| `MOTION_STATUS_STAIR` | 7 | 登阶模式运动状态 |
+| `MOTION_STATUS_WALK` | 2 | 行走 |
+| `MOTION_STATUS_BALANCE_STAND` | 3 | 平衡站立 |
+| `MOTION_STATUS_LIE_DOWN` | 4 | 卧倒状态 |
+| `MOTION_STATUS_CRAWL` | 5 | 匍匐状态 |
+| `MOTION_STATUS_CRAWL_WALK` | 6 | 匍匐行走状态 |
+| `MOTION_STATUS_LOCKED` | 7 | 锁定状态 |
 | `MOTION_STATUS_CLIMB` | 8 | 爬高台状态 |
-| `MOTION_STATUS_SLIM` | 9 | 瘦身状态 |
-| `MOTION_STATUS_GAIT` | 10 | 步态状态 |
+| `MOTION_STATUS_STAIR` | 9 | 登阶状态 |
+| `MOTION_STATUS_SLIM` | 10 | 矦身状态 |
+| `MOTION_STATUS_GAIT` | 11 | 步态状态 |
+| `MOTION_STATUS_DSB` | 12 | DSB 状态 |
 
 ---
 
@@ -414,6 +415,56 @@ struct CameraBitrateAck
 
 ---
 
+### PhotoDeviceId
+
+```cpp
+enum class PhotoDeviceId : uint32_t
+```
+
+**说明：**  
+拍照设备 ID。
+
+| 枚举值 | 整数值 | 说明 |
+|:--|:--|:--|
+| `FRONT` | 0 | 前摄 |
+| `BACK` | 1 | 后摄 |
+
+---
+
+### TakePhotoCmd
+
+```cpp
+struct TakePhotoCmd
+```
+
+**说明：**  
+拍照命令参数。
+
+| 成员 | 类型 | 说明 |
+|:--|:--|:--|
+| `task_id` | `uint32_t` | 任务 ID，由调用方填写，用于和拍照应答对应 |
+| `device_id` | `uint32_t` | 设备 ID，`0`: 前摄，`1`: 后摄 |
+
+---
+
+### TakePhotoAck
+
+```cpp
+struct TakePhotoAck
+```
+
+**说明：**  
+拍照命令应答信息。
+
+| 成员 | 类型 | 说明 |
+|:--|:--|:--|
+| `task_id` | `uint32_t` | 任务 ID，与请求中的 `task_id` 对应 |
+| `device_id` | `uint32_t` | 设备 ID，`0`: 前摄，`1`: 后摄 |
+| `error_code` | `uint32_t` | 错误码，`0` 表示成功，非 `0` 表示失败 |
+| `reason` | `std::string` | 失败原因描述 |
+
+---
+
 ### Speed
 
 ```cpp
@@ -471,12 +522,142 @@ struct RobotState
 | `hardware_emergency_status` | `EmergencyStatus` | 硬件急停状态 |
 | `head_direction` | `HeadDirection` | 当前头尾方向 |
 | `motion_status` | `MotionStatus` | 当前运动状态 |
+| `machine_status` | `MachineStatus` | 机器运行状态 |
 | `battery` | `BatteryData` | 电池信息 |
 | `speed` | `Speed` | 当前速度 |
 | `mile_data` | `float` | 里程累积数据 (m) |
 | `joint_temps` | `std::unordered_map<std::string, double>` | 关节温度<关节名称,关节温度> 单位：°C|
-| `sport_mode` | `SportMode` | 运动模式 |
 | `control_source` | `CtrlSource` | 控制来源 |
+
+---
+
+### JointStateData
+
+```cpp
+struct JointStateData
+```
+
+**说明：**  
+关节状态数据结构体。
+
+| 成员 | 类型 | 说明 |
+|:--|:--|:--|
+| `names` | `std::vector<std::string>` | 关节名称 |
+| `positions` | `std::vector<double>` | 关节位置（rad） |
+| `velocities` | `std::vector<double>` | 关节速度（rad/s） |
+| `efforts` | `std::vector<double>` | 关节力矩（N·m） |
+
+---
+
+### PeripheralPower
+
+```cpp
+enum class PeripheralPower
+```
+
+**说明：**  
+外设电源。
+
+| 枚举值 | 整数值 | 说明 |
+|:--|:--|:--|
+| `UNKNOWN` | 0 | 未知 |
+| `M1_48V` | 1 | M1 48V外设电源 |
+| `M1_24V` | 2 | M1 24V外设电源 |
+| `M1_12V` | 3 | M1 12V外设电源 |
+
+---
+
+### PowerCtrlCfg
+
+```cpp
+struct PowerCtrlCfg
+```
+
+**说明：**  
+外设电源控制结构体。
+
+| 成员 | 类型 | 说明 |
+|:--|:--|:--|
+| `power` | `PeripheralPower` | 外设电源 |
+| `enable` | `bool` | 开关 |
+
+---
+
+### PowerCtrlAck
+
+```cpp
+struct PowerCtrlAck
+```
+
+**说明：**  
+外设电源控制应答结构体。
+
+| 成员 | 类型 | 说明 |
+|:--|:--|:--|
+| `power` | `PeripheralPower` | 外设电源 |
+| `enable` | `bool` | 开关 |
+
+---
+
+## 任务相关
+
+### TaskType
+
+```cpp
+enum class TaskType
+```
+
+**说明：**  
+任务类型枚举。
+
+| 枚举值 | 整数值 | 说明 |
+|:--|:--|:--|
+| `UNKNOWN` | 0 | 未知 |
+| `SCAN_QR` | 1 | 扫描二维码 |
+| `MAPPING` | 2 | 建图 |
+| `NAV` | 3 | 导航 |
+| `RECHARGING` | 4 | 充电 |
+| `UNDOCK` | 5 | 脱离充电桩 |
+| `UWB_FOLLOW` | 6 | UWB 跟随 |
+| `VISUAL_TRACK` | 7 | 视觉跟踪 |
+
+---
+
+### TaskStatus
+
+```cpp
+enum class TaskStatus
+```
+
+**说明：**  
+任务状态枚举。
+
+| 枚举值 | 整数值 | 说明 |
+|:--|:--|:--|
+| `UNKNOWN` | 0 | 未知 |
+| `STARTING` | 1 | 启动中 |
+| `RUNNING` | 2 | 运行中 |
+| `SUCCESS` | 3 | 成功（终态） |
+| `FAILURE` | 4 | 失败（终态） |
+| `STOPPED` | 5 | 已停止（终态） |
+
+---
+
+### TaskStateInfo
+
+```cpp
+struct TaskStateInfo
+```
+
+**说明：**  
+任务状态信息结构体。
+
+| 成员 | 类型 | 说明 |
+|:--|:--|:--|
+| `task_type` | `TaskType` | 任务类型 |
+| `task_status` | `TaskStatus` | 任务状态 |
+| `phase` | `std::string` | 当前任务阶段描述 |
+| `error_code` | `uint32_t` | 错误码（0 表示成功，非 0 表示失败） |
 
 ---
 
@@ -521,4 +702,5 @@ struct SpeedData
 - [SDKClient API 文档](sdk_client_api_zh.md) - 客户端接口详细说明
 - [连接配置文档](sdk_connection_zh.md) - 连接参数和状态说明
 - [Callback 回调接口](sdk_callback_zh.md) - 回调接口定义
+- [充电与离桩任务使用说明](sdk_recharge_task_zh.md) - 充电任务与脱离充电桩任务的状态流转和使用建议
 - [状态定义文档](sdk_state_zh.md) - 连接状态和运动状态详解

@@ -36,7 +36,6 @@ static std::atomic<bool> g_front_light_on{false};
 static std::atomic<bool> g_back_light_on{false};
 static std::atomic<bool> g_auto_mode_light_on{false};
 static std::atomic<bool> g_estop_on{false};
-static std::atomic<uint32_t> g_photo_task_id{1};
 
 // Synchronization primitives
 static std::mutex g_connect_mtx;
@@ -45,15 +44,25 @@ static std::condition_variable g_connect_cv;
 // Robot state cache
 static std::mutex g_state_mtx;
 static RobotState g_robot_state;
-static std::atomic<bool> g_robot_m1_12v{true};
 
 // State string mappings
 
-const std::unordered_map<SpeedLevel, const char*> g_speed_level_map = {
-    {SpeedLevel::SPEED_LEVEL_SLOW, "Slow"},
-    {SpeedLevel::SPEED_LEVEL_MEDIUM, "Medium"},
-    {SpeedLevel::SPEED_LEVEL_HIGH, "High"},
-    {SpeedLevel::SPEED_LEVEL_UNKNOWN, "Unknown"}};
+const std::unordered_map<TaskType, const char*> g_task_type_map = {
+    {TaskType::UNKNOWN, "Unknown"},
+    {TaskType::SCAN_QR, "Scan QR"},
+    {TaskType::MAPPING, "Mapping"},
+    {TaskType::NAV, "Navigation"},
+    {TaskType::RECHARGING, "Recharging"},
+    {TaskType::UNDOCK, "Undock"},
+    {TaskType::UWB_FOLLOW, "UWB Follow"},
+    {TaskType::VISUAL_TRACK, "Visual Track"},
+};
+
+const std::unordered_map<TaskStatus, const char*> g_task_status_map = {
+    {TaskStatus::UNKNOWN, "Unknown"}, {TaskStatus::STARTING, "Starting"},
+    {TaskStatus::RUNNING, "Running"}, {TaskStatus::SUCCESS, "Success"},
+    {TaskStatus::FAILURE, "Failure"}, {TaskStatus::STOPPED, "Stopped"},
+};
 
 const std::unordered_map<MotionStatus, const char*> g_motion_status_map = {
     {MotionStatus::MOTION_STATUS_STAND_UP, "StandUp"},
@@ -122,13 +131,12 @@ class DataCallback : public IDataCallback {
     }
   }
 
-  void OnControlLost([[maybe_unused]] const ControlLostInfo& info) override {
-    std::cout << "\n[WARN] Control Lost! " << std::endl;
-  }
-
-  void OnControlAvailable(
-      [[maybe_unused]] const ControlAvailableInfo& info) override {
-    std::cout << "\n[INFO] Control Available! " << std::endl;
+  void OnTaskStateData(const TaskStateInfo& info) override {
+    std::cout << "\n[TASK] Task State Update:" << std::endl;
+    std::cout << "  Task Type: " << g_task_type_map.at(info.task_type)
+              << ", Status: " << g_task_status_map.at(info.task_status)
+              << ", Phase: " << info.phase
+              << ", Error Code: " << info.error_code << std::endl;
   }
 };
 
@@ -141,105 +149,29 @@ class DataCallback : public IDataCallback {
  */
 class ControlCallback : public IControlCallback {
  public:
-  void OnSoftEmergencyStop(bool on) override {
-    std::cout << "[CTRL] ✓ Emergency Stop: " << (on ? "ON" : "OFF")
+  void OnStartRechargeTask() override {
+    std::cout << "\n[CTRL] ✓ Start Recharge Task command acknowledged by robot"
               << std::endl;
   }
 
-  void OnStandUp() override { std::cout << "[CTRL] ✓ Stand Up" << std::endl; }
-
-  void OnBalanceStandUp() override {
-    std::cout << "[CTRL] ✓ Balance Stand Up" << std::endl;
-  }
-
-  void OnLieDown() override { std::cout << "[CTRL] ✓ Lie Down" << std::endl; }
-
-  void OnStair() override { std::cout << "[CTRL] ✓ Stair" << std::endl; }
-
-  void OnCrawl() override { std::cout << "[CTRL] ✓ Crawl" << std::endl; }
-
-  void OnCrawlWalk() override {
-    std::cout << "[CTRL] ✓ Crawl Walk" << std::endl;
-  }
-
-  void OnClimb() override { std::cout << "[CTRL] ✓ Climb" << std::endl; }
-
-  void OnGait() override { std::cout << "[CTRL] ✓ Gait" << std::endl; }
-
-  void OnSlim() override { std::cout << "[CTRL] ✓ Slim" << std::endl; }
-
-  void OnDSB() override { std::cout << "[CTRL] ✓ DSB" << std::endl; }
-
-  void OnPosControl() override {
-    std::cout << "[CTRL] ✓ Pos Control" << std::endl;
-  }
-
-  void OnSkWalk() override {
-    std::cout << "[CTRL] ✓ SameKnee Walk" << std::endl;
-  }
-
-  void OnReverseHeadTail() override {
-    std::cout << "[CTRL] ✓ Reverse Head/Tail" << std::endl;
-  }
-
-  void OnSpeed(int speed_level) override {
-    const char* speed_name[] = {"Stop", "Low", "Medium", "High"};
-    std::cout << "[CTRL] ✓ Speed: "
-              << (speed_level < 4 ? speed_name[speed_level] : "Invalid") << " ("
-              << speed_level << ")" << std::endl;
-  }
-
-  void OnLocked() override { std::cout << "[CTRL] ✓ Locked" << std::endl; }
-
-  void OnFrontLight(bool on) override {
-    std::cout << "[CTRL] ✓ Front Light: " << (on ? "ON" : "OFF") << std::endl;
-  }
-
-  void OnBackLight(bool on) override {
-    std::cout << "[CTRL] ✓ Back Light: " << (on ? "ON" : "OFF") << std::endl;
-  }
-
-  void OnAutoModeLight(bool on) override {
-    std::cout << "[CTRL] ✓ Auto Mode Light: " << (on ? "ON" : "OFF")
+  void OnStopRechargeTask() override {
+    std::cout << "\n[CTRL] ✓ Stop Recharge Task command acknowledged by robot"
               << std::endl;
   }
-  void OnTakeControlAck(const TakeControlAck& ack) override {
-    if (ack.error_code == 0) {
-      std::cout << "[CTRL] ✓ Take Control Success" << std::endl;
-    } else {
-      std::cout << "[CTRL] ✗ Take Control Failed, Reason: " << ack.reason
-                << std::endl;
-    }
-  }
-  void OnReleaseControlAck(const ReleaseControlAck& ack) override {
-    if (ack.error_code == 0) {
-      std::cout << "[CTRL] ✓ Release Control Success" << std::endl;
-    } else {
-      std::cout << "[CTRL] ✗ Release Control Failed, Reason: " << ack.reason
-                << std::endl;
-    }
+
+  void OnStartUnDockTask() override {
+    std::cout << "\n[CTRL] ✓ Start UnDock Task command acknowledged by robot"
+              << std::endl;
   }
 
-  void OnTakePhotoAck(const TakePhotoAck& ack) override {
-    if (ack.error_code == 0) {
-      std::cout << "[CTRL] ✓ Take Photo Success, TaskID: " << ack.task_id
-                << ", DeviceID: " << ack.device_id << std::endl;
-    } else {
-      std::cout << "[CTRL] ✗ Take Photo Failed, TaskID: " << ack.task_id
-                << ", DeviceID: " << ack.device_id
-                << ", ErrorCode: " << ack.error_code
-                << ", Reason: " << ack.reason << std::endl;
-    }
+  void OnStopUnDockTask() override {
+    std::cout << "\n[CTRL] ✓ Stop UnDock Task command acknowledged by robot"
+              << std::endl;
   }
 
-  void OnSetPeriphPower(const PowerCtrlAck& ack) override {
-    std::cout << "[CTRL] ✓ Set Peripheral Power Control: "
-              << (ack.enable ? "ON" : "OFF") << std::endl;
-  }
-
-  void OnGetPeriphPower(const PowerCtrlAck& ack) override {
-    std::cout << "[CTRL] ✓ Get Peripheral Power Control: "
-              << (ack.enable ? "ON" : "OFF") << std::endl;
+  void OnSwitchRemote() override {
+    std::cout << "\n[CTRL] ✓ Robot switched to remote control mode"
+              << std::endl;
   }
 };
 
@@ -261,9 +193,6 @@ void PrintRobotState(const RobotState& data) {
             << g_machine_status_map.at(data.machine_status) << std::endl;
 
   // Speed information
-  std::cout << "[Speed]" << std::endl;
-  std::cout << "  Speed Level: " << g_speed_level_map.at(data.speed_level)
-            << std::endl;
   std::cout << "  Linear: " << data.speed.line << " m/s" << std::endl;
   std::cout << "  Translation: " << data.speed.translation << " m/s"
             << std::endl;
@@ -323,67 +252,22 @@ void PrintRobotState(const RobotState& data) {
                     : "UNKNOWN")
             << std::endl;
 
-  std::cout << "[Joint Temperature]" << std::endl;
-  std::cout << "  Joint Temperatures: " << std::endl;
-  for (const auto& [joint, temp] : data.joint_temps) {
-    std::cout << "    " << joint << ": " << temp << "°C" << std::endl;
-  }
-
   std::cout << "================================\n" << std::endl;
 }
 
 // Command handler function type
 using CommandHandler = std::function<void(SDKClient&)>;
 
-void SendTakePhoto(SDKClient& client, PhotoDeviceId device_id) {
-  TakePhotoCmd cmd;
-  cmd.task_id = g_photo_task_id.fetch_add(1);
-  cmd.device_id = static_cast<uint32_t>(device_id);
-
-  const char* device_name =
-      (device_id == PhotoDeviceId::FRONT) ? "front" : "back";
-  auto err = client.TakePhoto(
-      cmd, 0, [task_id = cmd.task_id, device_name](const std::error_code& ec,
-                                                   std::size_t) {
-        if (ec) {
-          std::cerr << "[ERROR] TakePhoto " << device_name
-                    << " command failed, TaskID: " << task_id
-                    << ", Error: " << ec.message() << std::endl;
-        }
-      });
-  if (err) {
-    std::cerr << "[ERROR] TakePhoto " << device_name
-              << " command rejected, TaskID: " << cmd.task_id
-              << ", Error: " << err.message() << std::endl;
-    return;
-  }
-
-  std::cout << "[CMD] Take photo " << device_name
-            << ", TaskID: " << cmd.task_id << std::endl;
-}
-
 /**
  * @brief Print control help information
  */
 void PrintHelp() {
   std::cout << "\n========== Control Commands ==========" << std::endl;
-  std::cout << "[Speed]    4:Low  5:Medium  6:High" << std::endl;
-  std::cout << "[Move]     W:Forward  S:Backward  A:Left  D:Right  P:Stop"
+  std::cout << "[CHARGING] 1:StartRecharge  2:StopRecharge  3:StartUnDock  "
+               "4:StopUnDock"
             << std::endl;
-  std::cout << "[PosMove]  +:Z+  -:Z- " << std::endl;
-  std::cout << "[Yaw]      L:Left  R:Right" << std::endl;
-  std::cout << "[Roll]     7:Left roll  8:Right roll" << std::endl;
-  std::cout << "[Head]     9:Look Left  0:Look Up" << std::endl;
-  std::cout << "[Pose]     1:BalanceStandUp  2:CrawlWalk  3:Stair  Z:Stand  "
-               "X:Crawl  C:Lie  G:Gait  J:Climb  K:Slim  U:PosControl  /:SkWalk"
-            << std::endl;
-  std::cout << "[Light]    F:Front  B:Back  N:Auto" << std::endl;
-  std::cout << "[Photo]    [:Front Camera  ]:Back Camera" << std::endl;
-  std::cout << "[System]   E:E-Stop  M:Lock  V:Reverse Head/Tail" << std::endl;
-  std::cout << "[Control]  T:TakeControl Y:ReleaseControl Space:Stop  O:Status "
-               " H:Help  Q:Quit"
-            << std::endl;
-  std::cout << "[PowerCtrl] ,:Set M1_12V  .:Get M1_12V" << std::endl;
+  std::cout << "[Move]     W:Forward  S:Backward  A:Left  D:Right" << std::endl;
+  std::cout << "[Control]  O:Status H:Help  Q:Quit" << std::endl;
   std::cout << "======================================\n" << std::endl;
 }
 
@@ -394,124 +278,22 @@ void PrintHelp() {
  */
 std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
   return {
-      // ============ Posture Control ============
-      {'1', [](SDKClient& client) { client.BalanceStandUp(); }},
-      {'2', [](SDKClient& client) { client.CrawlWalk(); }},
-      {'3', [](SDKClient& client) { client.Stair(); }},
 
-      // ============ Speed Control ============
-      {'4', [](SDKClient& client) { client.SetSpeed(1); }},  // Low
-      {'5', [](SDKClient& client) { client.SetSpeed(2); }},  // Medium
-      {'6', [](SDKClient& client) { client.SetSpeed(3); }},  // High
+      {'1', [](SDKClient& client) { client.StartRechargeTask(); }},
 
-      // ============ BalanceStandUp Operations ============
-      {'7', [](SDKClient& client) { client.Turn(1); }},  // Left roll
-      {'8', [](SDKClient& client) { client.Turn(2); }},  // Right roll
-      {'9',
-       [](SDKClient& client) { client.ControlHead(0.5, 0.0); }},  // Left peek
-      {'0',
-       [](SDKClient& client) { client.ControlHead(0.0, 0.5); }},  // Look up
+      {'2', [](SDKClient& client) { client.StopRechargeTask(); }},
 
+      {'3', [](SDKClient& client) { client.StartUnDockTask(); }},
+
+      {'4', [](SDKClient& client) { client.StopUnDockTask(); }},
+
+      {'r', [](SDKClient& client) { client.SwitchRemoteState(); }},
       // ============ Directional Movement ============
       {'w', [](SDKClient& client) { client.Move(0.0, 0.11, 0.0); }},  // Forward
       {'a', [](SDKClient& client) { client.Move(0.1, 0.0, 0.0); }},   // Left
       {'s',
        [](SDKClient& client) { client.Move(0.0, -0.11, 0.0); }},  // Backward
       {'d', [](SDKClient& client) { client.Move(-0.1, 0.0, 0.0); }},  // Right
-
-      // ============ Turn Control ============
-      {'l',
-       [](SDKClient& client) { client.Move(0.0, 0.0, 0.1); }},  // Left turn
-      {'r',
-       [](SDKClient& client) { client.Move(0.0, 0.0, -0.1); }},  // Right turn
-
-      // ============ Posture Control ============
-      {'z', [](SDKClient& client) { client.StandUp(); }},  // Stand
-      {'x', [](SDKClient& client) { client.Crawl(); }},    // Crawl
-      {'c', [](SDKClient& client) { client.LieDown(); }},  // Lie down
-      {'v',
-       [](SDKClient& client) { client.ReverseHeadTail(); }},  // Toggle head
-      {'g', [](SDKClient& client) { client.Gait(); }},        // Gait
-      {'j', [](SDKClient& client) { client.Climb(); }},       // Climb
-      {'k', [](SDKClient& client) { client.Slim(); }},        // Slim
-      {'u', [](SDKClient& client) { client.PosControl(); }},  // PosControl
-      {'/', [](SDKClient& client) { client.SkWalk(); }},      // SkWalk
-
-      {'+',
-       [](SDKClient& client) {
-         PosControlCmd cmd{0.0, 0.0, 0.2, 0.0, 0.0, 0.0};
-         client.PosMove(cmd);
-       }},
-      {'-',
-       [](SDKClient& client) {
-         PosControlCmd cmd{0.0, 0.0, -0.2, 0.0, 0.0, 0.0};
-         client.PosMove(cmd);
-       }},
-      {',',
-       [](SDKClient& client) {
-         PowerCtrlCfg cfg{PeripheralPower::M1_12V, !g_robot_m1_12v.load()};
-         g_robot_m1_12v = !g_robot_m1_12v.load();
-         client.SetPeriphPower(cfg);
-       }},
-      {'.',
-       [](SDKClient& client) {
-         PowerCtrlCfg cfg{PeripheralPower::M1_12V};
-         client.GetPeriphPower(cfg);
-       }},
-
-      // ============ Control Authority Management ============
-      {'t', [](SDKClient& client) { client.TakeControl(); }},  // Take control
-      {'y',
-       [](SDKClient& client) { client.ReleaseControl(); }},  // Release control
-
-      // ============ Light Control ============
-      {'f',
-       [](SDKClient& client) {  // Front fill light
-         bool new_state = !g_front_light_on.load();
-         g_front_light_on = new_state;
-         auto err = client.FrontLight(
-             new_state, 0, [](const std::error_code& ec, std::size_t) {
-               if (ec) {
-                 std::cerr << "[ERROR] FrontLight command failed: "
-                           << ec.message() << std::endl;
-               }
-             });
-
-       }},
-      {'b',
-       [](SDKClient& client) {  // Back fill light
-         bool new_state = !g_back_light_on.load();
-         g_back_light_on = new_state;
-         auto err = client.BackLight(
-             new_state, 0, [](const std::error_code& ec, std::size_t) {
-               if (ec) {
-                 std::cerr << "[ERROR] BackLight command failed: "
-                           << ec.message() << std::endl;
-               }
-             });
-       }},
-      {'n',
-       [](SDKClient& client) {  // Auto mode light
-         bool new_state = !g_auto_mode_light_on.load();
-         g_auto_mode_light_on = new_state;
-         client.AutoModeLight(new_state);
-       }},
-
-      // ============ Photo Test ============
-      {'[',
-       [](SDKClient& client) { SendTakePhoto(client, PhotoDeviceId::FRONT); }},
-      {']',
-       [](SDKClient& client) { SendTakePhoto(client, PhotoDeviceId::BACK); }},
-
-      // ============ System Control ============
-      {'e',
-       [](SDKClient& client) {  // Emergency stop
-         bool new_state = !g_estop_on.load();
-         g_estop_on = new_state;
-         client.SoftEmergencyStop(new_state);
-       }},
-      {'m', [](SDKClient& client) { client.Locked(); }},  // Lock
-
       // ============ Stop and Status ============
       {' ',
        [](SDKClient& client) {  // Stop all motion
@@ -555,7 +337,7 @@ int main(int argc, char* argv[]) {
   const std::string port = argv[2];
 
   std::cout << "========================================" << std::endl;
-  std::cout << "  Robot SDK Interactive Control Demo" << std::endl;
+  std::cout << "  Robot SDK Recharge Demo" << std::endl;
   std::cout << "========================================" << std::endl;
   std::cout << "Target: " << ip << ":" << port << std::endl;
   std::cout << "========================================\n" << std::endl;

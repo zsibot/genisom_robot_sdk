@@ -308,8 +308,23 @@ Robot stand up action.
 **Return Value:**  
 Same as `SoftEmergencyStop`
 
-**Note:**  
-After calling stand up, `MOTION_STATUS_STAND_UP` state is reported during the standing process. After standing completes, it automatically transitions to `MOTION_STATUS_GENERAL` or `MOTION_STATUS_IN_PLACE` state based on the current mode.
+---
+
+### BalanceStandUp - Balance Stand Up
+
+```cpp
+std::error_code BalanceStandUp(int timeout_ms = 0,
+                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Robot balance stand up action.
+
+**Parameters:**  
+Same as `StandUp`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
 
 ---
 
@@ -331,6 +346,24 @@ Same as `SoftEmergencyStop`
 
 ---
 
+### Stair - Stair Climbing Posture
+
+```cpp
+std::error_code Stair(int timeout_ms = 0,
+                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Enter stair-climbing posture.
+
+**Parameters:**  
+Same as `StandUp`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
 ### Crawl - Crawl
 
 ```cpp
@@ -340,6 +373,24 @@ std::error_code Crawl(int timeout_ms = 0,
 
 **Description:**  
 Robot crawl action.
+
+**Parameters:**  
+Same as `StandUp`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### CrawlWalk - Crawl Walk
+
+```cpp
+std::error_code CrawlWalk(int timeout_ms = 0,
+                          WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Robot crawl walk action.
 
 **Parameters:**  
 Same as `StandUp`
@@ -433,28 +484,6 @@ Reverse the robot's head and tail direction.
 
 **Parameters:**  
 Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### SetMode - Set Mode
-
-```cpp
-std::error_code SetMode(int mode, int timeout_ms = 0,
-                        WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Set robot operating mode, default is general mode.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `mode` | `int` | - | `1`: general mode; `2`: in-place mode; `3`: stair-climbing mode |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
 
 **Return Value:**  
 Same as `SoftEmergencyStop`
@@ -856,6 +885,36 @@ Synchronous mode: Function return indicates command send result
 
 ---
 
+### SetJointStateConfig - Configure Joint State Data
+
+```cpp
+std::error_code SetJointStateConfig(bool on, int timeout_ms = 0,
+                                    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Configure joint state data reporting switch, disabled by default.
+
+**Parameters:**
+| Parameter Name | Type | Default Value | Description |
+|:--|:--|:--|:--|
+| `on` | `bool` | - | `true`: enable; `false`: disable |
+| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
+| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+
+**Return Value:**  
+- `std::errc::success`: Operation successful
+- Common failure error codes:
+  - `std::errc::timed_out`: Operation timeout
+  - `std::errc::not_connected`: Not connected
+  - `std::errc::operation_canceled`: Operation canceled
+
+**Note:**  
+Asynchronous mode: Function return only indicates command sent; send result notified through callback  
+Synchronous mode: Function return indicates command send result
+
+---
+
 ### TakeControl - Take Control
 
 ```cpp
@@ -945,6 +1004,219 @@ Synchronous mode: Function return indicates command send result
 
 ---
 
+### TakePhoto - Take Photo
+
+```cpp
+std::error_code TakePhoto(
+    TakePhotoCmd cmd, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {});
+```
+
+**Description:**  
+Send a take-photo command to the robot. `device_id` `0` means front camera, and `1` means back camera. The photo result is reported through `OnTakePhotoAck(const TakePhotoAck& ack)`.
+
+**Parameters:**
+| Parameter Name | Type | Default Value | Description |
+|:--|:--|:--|:--|
+| `cmd` | `TakePhotoCmd` | - | Photo task parameters, including `task_id` and `device_id` |
+| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
+| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+
+**Return Value:**  
+- `std::errc::success`: Operation successful
+- Common failure error codes:
+  - `std::errc::invalid_argument`: Invalid `device_id`; only `0` and `1` are supported
+  - `std::errc::timed_out`: Operation timeout
+  - `std::errc::not_connected`: Not connected
+  - `std::errc::operation_canceled`: Operation canceled
+
+**Example:**
+```cpp
+TakePhotoCmd cmd;
+cmd.task_id = 1;
+cmd.device_id = static_cast<uint32_t>(PhotoDeviceId::FRONT);
+
+std::error_code ec = sdk.TakePhoto(cmd, 1000);
+```
+
+**Note:**  
+Asynchronous mode: Function return only indicates command sent; send result is notified through `handler`, and the business result is notified through `OnTakePhotoAck`  
+Synchronous mode: Function return indicates command send result; the business result is still notified through `OnTakePhotoAck`
+
+---
+
+## Task Control Interfaces
+
+### StartRechargeTask - Start Recharge Task
+
+```cpp
+std::error_code StartRechargeTask(int timeout_ms = 0,
+                                  WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Start the robot recharge task.
+
+**Parameters:**
+| Parameter Name | Type | Default Value | Description |
+|:--|:--|:--|:--|
+| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
+| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### StopRechargeTask - Stop Recharge Task
+
+```cpp
+std::error_code StopRechargeTask(int timeout_ms = 0,
+                                 WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Stop the robot recharge task.
+
+**Parameters:**  
+Same as `StartRechargeTask`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### StartUnDockTask - Start Undock Task
+
+```cpp
+std::error_code StartUnDockTask(int timeout_ms = 0,
+                                WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Start the robot undock task.
+
+**Parameters:**  
+Same as `StartRechargeTask`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### StopUnDockTask - Stop Undock Task
+
+```cpp
+std::error_code StopUnDockTask(int timeout_ms = 0,
+                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Stop the robot undock task.
+
+**Parameters:**  
+Same as `StartRechargeTask`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### SwitchRemoteState - Switch Remote State
+
+```cpp
+std::error_code SwitchRemoteState(int timeout_ms = 0,
+                                  WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Switch the robot to remote control state.
+
+**Parameters:**  
+Same as `StartRechargeTask`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### SwitchIdleState - Switch Idle State
+
+```cpp
+std::error_code SwitchIdleState(int timeout_ms = 0,
+                                WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Switch the robot to idle state.
+
+**Parameters:**  
+Same as `StartRechargeTask`
+
+**Return Value:**  
+Same as `SoftEmergencyStop`
+
+---
+
+### SetPeriphPower - Set Peripheral Power
+
+```cpp
+std::error_code SetPeriphPower(
+    const PowerCtrlCfg& cfg, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Set the state of a peripheral power channel.
+
+**Parameters:**
+
+| Parameter Name | Type | Default Value | Description |
+|:--|:--|:--|:--|
+| `cfg` | `PowerCtrlCfg` | — | Peripheral power control configuration |
+| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
+| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+
+**Return Value:**  
+- `std::errc::success`: Operation succeeded
+- Common failure codes:
+  - `std::errc::timed_out`: Operation timeout
+  - `std::errc::not_connected`: Not connected
+  - `std::errc::operation_canceled`: Operation canceled
+
+**Notes:**  
+In asynchronous mode, the function return value only indicates that the command was accepted for sending; the final sending result is reported through the callback.  
+In synchronous mode, the function return value indicates the command sending result directly.
+
+---
+
+### GetPeriphPower - Get Peripheral Power State
+
+```cpp
+std::error_code GetPeriphPower(
+    const PowerCtrlCfg& cfg, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**Description:**  
+Query the current state of a peripheral power channel.
+
+**Parameters:**
+
+| Parameter Name | Type | Default Value | Description |
+|:--|:--|:--|:--|
+| `cfg` | `PowerCtrlCfg` | — | Peripheral power query configuration. The `power` field specifies which channel to query |
+| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
+| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+
+**Return Value:**  
+Same as `SetPeriphPower`
+
+**Notes:**  
+The queried state is returned through the corresponding control callback acknowledgment (`OnGetPeriphPower`) in non-blocking workflows.
+
+---
+
 ## Version Information
 
 ### `const std::string& Version() const`
@@ -988,3 +1260,12 @@ int main() {
     return 0;
 }
 ```
+
+---
+
+## Related Documentation
+
+- [Connection Configuration Documentation](sdk_connection_en.md) - Connection parameters and basic usage
+- [Type Definition Documentation](sdk_type_en.md) - Task states, machine states, and related structures
+- [Callback Reference](sdk_callback_en.md) - Control and data callback descriptions
+- [Recharge and Undock Task Usage Guide](sdk_recharge_task_en.md) - Detailed usage instructions for `StartRechargeTask`, `StopRechargeTask`, `StartUnDockTask`, and `StopUnDockTask`

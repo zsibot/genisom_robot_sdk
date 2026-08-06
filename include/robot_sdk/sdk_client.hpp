@@ -53,11 +53,23 @@ class ROBOT_EXPORT_API SDKClient {
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
+  std::error_code BalanceStandUp(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
   std::error_code LieDown(
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
+  std::error_code Stair(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
   std::error_code Crawl(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code CrawlWalk(
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
@@ -77,12 +89,12 @@ class ROBOT_EXPORT_API SDKClient {
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
-  std::error_code ReverseHeadTail(
+  std::error_code PosControl(
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
-  std::error_code SetMode(
-      int mode, int timeout_ms = 0,
+  std::error_code ReverseHeadTail(
+      int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
   std::error_code SetSpeed(
@@ -90,6 +102,10 @@ class ROBOT_EXPORT_API SDKClient {
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
   std::error_code Locked(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code SkWalk(
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
@@ -103,6 +119,10 @@ class ROBOT_EXPORT_API SDKClient {
 
   std::error_code AutoModeLight(
       bool on, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code PosMove(
+      PosControlCmd cmd, int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
   std::error_code Move(
@@ -151,6 +171,42 @@ class ROBOT_EXPORT_API SDKClient {
 
   std::error_code UpdateCameraBitrate(
       CameraBitrateCmd cmd, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code TakePhoto(
+      TakePhotoCmd cmd, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code StartRechargeTask(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code StopRechargeTask(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code StartUnDockTask(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code StopUnDockTask(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code SwitchIdleState(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code SwitchRemoteState(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code SetPeriphPower(
+      const PowerCtrlCfg& cfg, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code GetPeriphPower(
+      const PowerCtrlCfg& cfg, int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
   const std::string& Version() const;

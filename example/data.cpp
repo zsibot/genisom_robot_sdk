@@ -100,8 +100,6 @@ class DataCallback : public IDataCallback {
               << static_cast<int>(data.software_emergency_status)
               << " HW=" << static_cast<int>(data.hardware_emergency_status)
               << std::endl;
-    std::cout << "  Motion: Status=" << static_cast<int>(data.motion_status)
-              << " Mode=" << static_cast<int>(data.sport_mode) << std::endl;
     std::cout << "  Battery: 1=" << static_cast<int>(data.battery.power1) << "%"
               << " 2=" << static_cast<int>(data.battery.power2) << "%"
               << std::endl;
@@ -180,8 +178,8 @@ class ControlCallback : public IControlCallback {
  */
 void DemoSensorData(SDKClient& client) {
   std::cout << "\n========== IMU Sensor Demo ==========" << std::endl;
-  std::cout << "[CMD] Enabling IMU @ 100Hz..." << std::endl;
-  client.SetImuConfig(100);
+  std::cout << "[CMD] Enabling IMU @ 200Hz..." << std::endl;
+  client.SetImuConfig(200);
   std::this_thread::sleep_for(std::chrono::seconds(3));
 
   std::cout << "[CMD] Disabling IMU..." << std::endl;

@@ -1,17 +1,31 @@
-# SDK Motion State Transitions
+## SDK Internal Motion State Flow
 
-**Note: When transitioning from locked state to other states (stand up, crawl, lie down), it is considered unlocked.**
+**Note: Switching from the locked state to any other state is considered an unlock operation.**
 
-*When a stand up command is issued, the stand up state is reported during the standing process. After standing is complete, it automatically switches to the universal state, in-place state, or stair-climbing state based on the current mode.*
+### SDK Posture Capability Matrix
 
-![Image](images/SDK-State.png)
+> All postures support direct switching.
 
-## SDK Mode Switching
+#### Posture List
 
-**When switching modes, the robot will automatically stand up; after standing is complete, the corresponding state is reported.**
+| Posture ID | Posture Name | Description | Can Switch To | Notes |
+|---------|---------|---------|---------|---------|
+| StandUp | Stand Up | Robot stands and can move | Any posture | Supports movement via `Move` |
+| BalanceStandUp | Balance Stand Up | Robot stands in place | Any posture | Supports head control via `ControlHead`<br>Supports body rolling via `Turn`<br>Supports body height adjustment via `HighLowStance` |
+| LieDown | Lie Down | Prone posture | Any posture | - |
+| Stair | Stair Mode | Standing posture for stair traversal | Any posture | Supports movement via `Move` |
+| Crawl | Crawl | Crawling posture, stationary | Any posture | - |
+| CrawlWalk | Crawl Walk | Crawling posture with movement | Any posture | Supports movement via `Move` |
+| Climb | Climb | Climbing posture | Any posture | Supports movement via `Move` |
+| Gait | Gait | Fine gait posture | Any posture | Supports movement via `Move` |
+| Slim | Slim | Narrow passage posture | Any posture | Supports movement via `Move` |
+| DSB | DSB | Door sill / barrier crossing posture | Any posture | Supports movement via `Move` |
+| PosControl | Position Control | Position control posture | Any posture | Supports position control via `PosMove` |
+| Locked | Locked | Locked posture | Any posture | Switching to any other posture performs unlock |
+| SkWalk | SkWalk | Same-knee posture | Only `StandUp` | Supports movement via `Move` |
 
 ## SDK Command Delivery
 
-The figure shows two command delivery designs.
+The figure below shows two command delivery designs.
 
 ![Image](images/SDK-SendCmd.png)

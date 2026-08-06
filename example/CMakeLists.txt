@@ -35,6 +35,7 @@ add_executable(manual_reconnect manual_reconnect.cpp)
 add_executable(auto_reconnect auto_reconnect.cpp)
 add_executable(take_control take_control.cpp)
 add_executable(camera_bitrate camera_bitrate.cpp)
+add_executable(recharge recharge.cpp)
 
 # -------------------------------
 # 5. Link SDK Library
@@ -47,6 +48,7 @@ target_link_libraries(manual_reconnect PRIVATE robot_sdk Threads::Threads)
 target_link_libraries(auto_reconnect PRIVATE robot_sdk)
 target_link_libraries(take_control PRIVATE robot_sdk Threads::Threads)
 target_link_libraries(camera_bitrate PRIVATE robot_sdk)
+target_link_libraries(recharge PRIVATE robot_sdk Threads::Threads)
 # -------------------------------
 # 6. Runtime Library Search Path (RPATH)
 # -------------------------------
@@ -73,5 +75,8 @@ set_target_properties(take_control PROPERTIES
     BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
 )
 set_target_properties(camera_bitrate PROPERTIES
+    BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
+)
+set_target_properties(recharge PROPERTIES
     BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
 )

@@ -6,8 +6,8 @@
 开发者通过该类可实现机器人运动控制、模式切换、急停、灯光控制、数据上报配置等功能。
 
 **工作模式：**
-- **同步模式（阻塞）**：`timeout_ms > 0`，函数阻塞等待操作完成或超时后返回结果
-- **异步模式（非阻塞）**：`timeout_ms = 0`，函数立即返回，通过回调函数通知操作结果
+- **同步模式（阻塞）**：`timeout_ms > 0`，函数阻塞等待数据发送完成或超时后返回结果
+- **异步模式（非阻塞）**：`timeout_ms = 0`，函数立即返回，通过回调函数通知数据发送结果
 
 **注意：**`block` 参数仅用于 `Connect` 和 `Disconnect` 函数，其他控制函数通过 `timeout_ms` 参数区分同步/异步模式。
 
@@ -225,7 +225,11 @@ void SetControlCallback(std::shared_ptr<IControlCallback> control_callback)
 ```
 
 **说明：**  
-设置控制消息通知函数，用于接收控制命令的应答。
+设置控制消息Ack通知函数。
+
+当给机器下发控制命令后，机器会返回应答，来表示机器收到了命令。
+
+当收到应答后会调用此回调函数来通知用户。
 
 **参数：**
 | 参数名 | 类型 | 说明 |
@@ -307,8 +311,23 @@ std::error_code StandUp(int timeout_ms = 0,
 **返回值：**  
 同 `SoftEmergencyStop`
 
-**注意：**  
-调用站立后，站立过程中会上报 `MOTION_STATUS_STAND_UP` 状态，站立完成后会根据模式自动进入 `MOTION_STATUS_GENERAL` 或 `MOTION_STATUS_IN_PLACE` 状态。
+---
+
+### BalanceStandUp - 平衡站立
+
+```cpp
+std::error_code BalanceStandUp(int timeout_ms = 0,
+                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+机器人平衡站立动作。
+
+**参数：**  
+同 `StandUp`
+
+**返回值：**  
+同 `SoftEmergencyStop`
 
 ---
 
@@ -330,6 +349,24 @@ std::error_code LieDown(int timeout_ms = 0,
 
 ---
 
+### Stair - 登阶姿态
+
+```cpp
+std::error_code Stair(int timeout_ms = 0,
+                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+进入登阶姿态。
+
+**参数：**  
+同 `StandUp`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
 ### Crawl - 匍匐
 
 ```cpp
@@ -339,6 +376,24 @@ std::error_code Crawl(int timeout_ms = 0,
 
 **说明：**  
 机器人匍匐动作。
+
+**参数：**  
+同 `StandUp`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### CrawlWalk - 匍匐行走
+
+```cpp
+std::error_code CrawlWalk(int timeout_ms = 0,
+                          WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+机器人匍匐行走动作。
 
 **参数：**  
 同 `StandUp`
@@ -420,6 +475,42 @@ std::error_code DSB(int timeout_ms = 0,
 
 ---
 
+### PosControl - 位控姿态
+
+```cpp
+std::error_code PosControl(int timeout_ms = 0,
+                           WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+切换机器人到位控姿态，仅在**通用模式**下使用。
+
+**参数：**  
+同 `StandUp`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### SkWalk - 同膝姿态
+
+```cpp
+std::error_code SkWalk(int timeout_ms = 0,
+                       WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+切换机器人到同膝姿态，仅在**通用模式**下使用。
+
+**参数：**  
+同 `StandUp`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
 ### ReverseHeadTail - 调转头尾
 
 ```cpp
@@ -432,28 +523,6 @@ std::error_code ReverseHeadTail(int timeout_ms = 0,
 
 **参数：**  
 同 `StandUp`
-
-**返回值：**  
-同 `SoftEmergencyStop`
-
----
-
-### SetMode - 设置模式
-
-```cpp
-std::error_code SetMode(int mode, int timeout_ms = 0,
-                        WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**说明：**  
-设置机器人运行模式，默认为通用模式。
-
-**参数：**
-| 参数名 | 类型 | 默认值 | 说明 |
-|:--|:--|:--|:--|
-| `mode` | `int` | - | `1`: 通用模式；`2`: 原地模式；`3`: 登阶模式 |
-| `timeout_ms` | `int` | `0` | `0`: 异步模式；`> 0`: 同步模式，最大等待时间（毫秒） |
-| `handler` | `WriteHandler` | 空回调 | 异步模式下命令发送结果回调函数；同步模式不使用 |
 
 **返回值：**  
 同 `SoftEmergencyStop`
@@ -855,6 +924,36 @@ std::error_code SetSpeedReportConfig(bool on, uint32_t frequency, int timeout_ms
 
 ---
 
+### SetJointStateConfig - 配置关节状态数据
+
+```cpp
+std::error_code SetJointStateConfig(bool on, int timeout_ms = 0,
+                                    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+配置关节状态数据上报开关，默认关闭。
+
+**参数：**
+| 参数名 | 类型 | 默认值 | 说明 |
+|:--|:--|:--|:--|
+| `on` | `bool` | - | `true`: 开启；`false`: 关闭 |
+| `timeout_ms` | `int` | `0` | `0`: 异步模式；`> 0`: 同步模式，最大等待时间（毫秒） |
+| `handler` | `WriteHandler` | 空回调 | 异步模式下命令发送结果回调函数；同步模式不使用 |
+
+**返回值：**  
+- `std::errc::success`: 操作成功
+- 常见失败错误码：
+  - `std::errc::timed_out`: 操作超时
+  - `std::errc::not_connected`: 未连接
+  - `std::errc::operation_canceled`: 操作已取消
+
+**注意：**  
+异步模式：函数返回仅表示命令已发送，发送结果通过回调函数通知  
+同步模式：函数返回即表示命令发送结果
+
+---
+
 ### TakeControl - 获取控制权
 
 ```cpp
@@ -916,9 +1015,9 @@ std::error_code ReleaseControl(int timeout_ms = 0,
 ### UpdateCameraBitrate - 更新摄像头码率
 
 ```cpp
-  std::error_code UpdateCameraBitrate(
-      CameraBitrateCmd cmd, int timeout_ms = 0,
-      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+std::error_code UpdateCameraBitrate(
+    CameraBitrateCmd cmd, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {});
 ```
 
 **说明：**  
@@ -941,6 +1040,217 @@ std::error_code ReleaseControl(int timeout_ms = 0,
 **注意：**  
 异步模式：函数返回仅表示命令已发送，发送结果通过回调函数通知  
 同步模式：函数返回即表示命令发送结果
+
+---
+
+### TakePhoto - 拍照
+
+```cpp
+std::error_code TakePhoto(
+    TakePhotoCmd cmd, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {});
+```
+
+**说明：**  
+向机器人下发拍照指令。`device_id` 为 `0` 表示前摄，`1` 表示后摄；拍照应答通过 `OnTakePhotoAck(const TakePhotoAck& ack)` 回调返回。
+
+**参数：**
+| 参数名 | 类型 | 默认值 | 说明 |
+|:--|:--|:--|:--|
+| `cmd` | `TakePhotoCmd` |  | 拍照任务参数，包含 `task_id` 和 `device_id` |
+| `timeout_ms` | `int` | `0` | `0`: 异步模式；`> 0`: 同步模式，最大等待时间（毫秒） |
+| `handler` | `WriteHandler` | 空回调 | 异步模式下命令发送结果回调函数；同步模式不使用 |
+
+**返回值：**  
+- `std::errc::success`: 操作成功
+- 常见失败错误码：
+  - `std::errc::invalid_argument`: `device_id` 非法，仅支持 `0` 或 `1`
+  - `std::errc::timed_out`: 操作超时
+  - `std::errc::not_connected`: 未连接
+  - `std::errc::operation_canceled`: 操作已取消
+
+**示例：**
+```cpp
+TakePhotoCmd cmd;
+cmd.task_id = 1;
+cmd.device_id = static_cast<uint32_t>(PhotoDeviceId::FRONT);
+
+std::error_code ec = sdk.TakePhoto(cmd, 1000);
+```
+
+**注意：**  
+异步模式：函数返回仅表示命令已发送，发送结果通过 `handler` 通知，业务执行结果通过 `OnTakePhotoAck` 通知  
+同步模式：函数返回即表示命令发送结果，业务执行结果仍通过 `OnTakePhotoAck` 通知
+
+---
+
+## 任务控制接口
+
+### StartRechargeTask - 启动充电任务
+
+```cpp
+std::error_code StartRechargeTask(int timeout_ms = 0,
+                                  WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+启动机器人充电任务。
+
+**参数：**
+| 参数名 | 类型 | 默认值 | 说明 |
+|:--|:--|:--|:--|
+| `timeout_ms` | `int` | `0` | `0`: 异步模式；`> 0`: 同步模式，最大等待时间（毫秒） |
+| `handler` | `WriteHandler` | 空回调 | 异步模式下命令发送结果回调函数；同步模式不使用 |
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### StopRechargeTask - 停止充电任务
+
+```cpp
+std::error_code StopRechargeTask(int timeout_ms = 0,
+                                 WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+停止机器人充电任务。
+
+**参数：**  
+同 `StartRechargeTask`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### StartUnDockTask - 启动脱离充电桩任务
+
+```cpp
+std::error_code StartUnDockTask(int timeout_ms = 0,
+                                WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+启动机器人脱离充电桩任务。
+
+**参数：**  
+同 `StartRechargeTask`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### StopUnDockTask - 停止脱离充电桩任务
+
+```cpp
+std::error_code StopUnDockTask(int timeout_ms = 0,
+                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+停止机器人脱离充电桩任务。
+
+**参数：**  
+同 `StartRechargeTask`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### SwitchRemoteState - 切换远程控制状态
+
+```cpp
+std::error_code SwitchRemoteState(int timeout_ms = 0,
+                                  WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+切换机器人到远程控制状态。
+
+**参数：**  
+同 `StartRechargeTask`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### SwitchIdleState - 切换空闲状态
+
+```cpp
+std::error_code SwitchIdleState(int timeout_ms = 0,
+                                WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+**说明：**  
+切换机器人到空闲状态。
+
+**参数：**  
+同 `StartRechargeTask`
+
+**返回值：**  
+同 `SoftEmergencyStop`
+
+---
+
+### SetPeriphPower - 设置外设电源
+
+```cpp
+std::error_code SetPeriphPower(
+    const PowerCtrlCfg& cfg, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {});
+```
+
+**说明：**  
+设置指定外设电源通道的开关状态。
+
+**参数：**
+| 参数名 | 类型 | 默认值 | 说明 |
+|:--|:--|:--|:--|
+| `cfg` | `PowerCtrlCfg` |  | 外设电源控制配置 |
+| `timeout_ms` | `int` | `0` | `0`: 异步模式；`> 0`: 同步模式，最大等待时间（毫秒） |
+| `handler` | `WriteHandler` | 空回调 | 异步模式下命令发送结果回调函数；同步模式不使用 |
+
+**返回值：**  
+- `std::errc::success`: 操作成功
+- 常见失败错误码：
+  - `std::errc::timed_out`: 操作超时
+  - `std::errc::not_connected`: 未连接
+  - `std::errc::operation_canceled`: 操作已取消
+
+**注意：**  
+异步模式：函数返回仅表示命令已进入发送流程，实际发送结果通过回调函数通知。  
+同步模式：函数返回值即表示命令发送结果。
+
+---
+
+### GetPeriphPower - 获取外设电源状态
+
+```cpp
+std::error_code GetPeriphPower(
+    const PowerCtrlCfg& cfg, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {});
+```
+
+**说明：**  
+查询指定外设电源通道的当前状态。
+
+**参数：**
+| 参数名 | 类型 | 默认值 | 说明 |
+|:--|:--|:--|:--|
+| `cfg` | `PowerCtrlCfg` |  | 外设电源查询配置，其中 `power` 字段用于指定查询的电源通道 |
+| `timeout_ms` | `int` | `0` | `0`: 异步模式；`> 0`: 同步模式，最大等待时间（毫秒） |
+| `handler` | `WriteHandler` | 空回调 | 异步模式下命令发送结果回调函数；同步模式不使用 |
+
+**返回值：**  
+同 `SetPeriphPower`
+
+**注意：**  
+在非阻塞工作流下，查询到的外设电源状态会通过对应的控制回调 `OnGetPeriphPower` 返回。
 
 ---
 
@@ -988,3 +1298,11 @@ int main() {
 }
 ```
 
+---
+
+## 相关文档
+
+- [连接配置文档](sdk_connection_zh.md) - 连接参数和基础使用方式
+- [类型定义文档](sdk_type_zh.md) - 任务状态、机器状态及相关结构体说明
+- [Callback 回调接口](sdk_callback_zh.md) - 控制回调与数据回调说明
+- [充电与离桩任务使用说明](sdk_recharge_task_zh.md) - `StartRechargeTask`、`StopRechargeTask`、`StartUnDockTask`、`StopUnDockTask` 的详细使用说明

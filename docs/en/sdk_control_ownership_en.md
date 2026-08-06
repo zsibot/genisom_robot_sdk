@@ -1,15 +1,15 @@
-## Control Authority Between SDK and App ##
+## SDK and App Control Ownership
 
 **Principles**
 
-**1.The App is allowed to preempt the SDK's control authority.**
+**1. The App is allowed to preempt control ownership from the SDK.**
 
-**2.The SDK is not allowed to preempt the App's control authority.**
+**2. The SDK is not allowed to preempt control ownership from the App.**
 
-### Scenario 1: The App Connects First, Followed by the SDK. Control authority is held by the App, and the SDK cannot control the robot. ###
+### Scenario 1: The App connects first, and then the SDK connects. Control ownership belongs to the App, so the SDK cannot control the robot.
 
-![图片](images/APP-Control.png)
+![Image](images/APP-Control.png)
 
-### Scenario 2: The SDK Connects First, Followed by the App. Control authority is held by the SDK. The App cannot control the robot, but it can forcibly preempt the SDK's control authority. ###
+### Scenario 2: The SDK connects first, and then the App connects. Control ownership belongs to the SDK, so the App cannot control the robot initially, but it can forcibly take control from the SDK.
 
-![图片](images/APP-Control.png)
+![Image](images/SDK-Control.png)

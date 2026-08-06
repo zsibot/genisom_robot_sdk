@@ -144,42 +144,55 @@ enum class HeadDirection {
   HEAD_DIRECTION_TAIL,
 };
 
-/// @brief Motion mode.
-enum class SportMode {
-  /// @brief Unknown mode.
-  SPORT_MODE_UNKNOWN = 0,
-  /// @brief General mode.
-  SPORT_MODE_GENERAL,
-  /// @brief In-place mode.
-  SPORT_MODE_IN_PLACE,
-  /// @brief Stair-climbing mode.
-  SPORT_MODE_STAIR,
-};
-
 /// @brief Motion state.
 enum class MotionStatus {
   /// @brief Unknown state.
   MOTION_STATUS_UNKNOWN = 0,
   /// @brief Standing.
   MOTION_STATUS_STAND_UP,
+  /// @brief Walk
+  MOTION_STATUS_WALK,
+  /// @brief Balance stand.
+  MOTION_STATUS_BALANCE_STAND,
   /// @brief Lying down.
   MOTION_STATUS_LIE_DOWN,
   /// @brief Crawling.
   MOTION_STATUS_CRAWL,
+  /// @brief Crawling walk.
+  MOTION_STATUS_CRAWL_WALK,
   /// @brief Locked.
   MOTION_STATUS_LOCKED,
-  /// @brief General mode state.
-  MOTION_STATUS_GENERAL,
-  /// @brief In-place mode state.
-  MOTION_STATUS_IN_PLACE,
-  /// @brief Stair-climbing mode state.
-  MOTION_STATUS_STAIR,
   /// @brief Climbing high platform state.
   MOTION_STATUS_CLIMB,
+  /// @brief Stair-climbing state.
+  MOTION_STATUS_STAIR,
   /// @brief Slim (body compress) state.
   MOTION_STATUS_SLIM,
   /// @brief Gait state.
   MOTION_STATUS_GAIT,
+  /// @brief DSB state.
+  MOTION_STATUS_DSB,
+  /// @brief PosControl state.
+  MOTION_STATUS_POS_CONTROL,
+  /// @brief SameKnee Walk state.
+  MOTION_STATUS_SK_WALK,
+};
+
+enum class MachineStatus {
+  UNKNOWN = 0,
+  IDLE = 1,
+  REMOTE = 2,
+  OTA = 3,
+  RECHARGE = 4,
+  MAPPING = 5,
+  NAVIGATION = 6,
+  SAFETY = 7,
+  SELFTEST = 8,
+  SOFT_SHUTDOWN = 9,
+  SILENCE = 10,
+  FOLLOW = 11,
+  TRACK = 12,
+  UNDOCK = 13,
 };
 
 enum class CtrlSource {
@@ -187,6 +200,33 @@ enum class CtrlSource {
   CTRL_SOURCE_APP = 1,
   CTRL_SOURCE_SDK = 2,
   CTRL_SOURCE_OTHER = 3,
+};
+
+enum class TaskType {
+  UNKNOWN = 0,
+  SCAN_QR = 1,
+  MAPPING = 2,
+  NAV = 3,
+  RECHARGING = 4,
+  UNDOCK = 5,
+  UWB_FOLLOW = 6,
+  VISUAL_TRACK = 7,
+};
+
+enum class TaskStatus {
+  UNKNOWN = 0,
+  STARTING = 1,
+  RUNNING = 2,
+  SUCCESS = 3,  // Final state
+  FAILURE = 4,  // Final state
+  STOPPED = 5,  // Final state
+};
+
+enum class PeripheralPower {
+  UNKNOWN = 0,
+  M1_48V = 1,
+  M1_24V = 2,
+  M1_12V = 3,
 };
 
 /// @brief Velocity information.
@@ -228,6 +268,9 @@ struct RobotState {
   /// @brief Motion state.
   MotionStatus motion_status;
 
+  /// @bried Machine status.
+  MachineStatus machine_status;
+
   /// @brief Battery data.
   BatteryData battery;
 
@@ -239,9 +282,6 @@ struct RobotState {
 
   /// @brief Joint temperature map (joint name to temperature).
   std::unordered_map<std::string, double> joint_temps;
-
-  /// @brief Motion mode.
-  SportMode sport_mode;
 
   /// @brief Control source.
   CtrlSource control_source;
@@ -333,6 +373,65 @@ struct CameraBitrateAck {
   std::string camera_name;
   /// @brief Camera bitrate in bps (bit/s). Range: 50000-100000000.
   uint32_t camera_bps;
+};
+
+enum class PhotoDeviceId : uint32_t {
+  FRONT = 0,
+  BACK = 1,
+};
+
+/// @brief Take photo command.
+struct TakePhotoCmd {
+  /// @brief Task ID supplied by caller.
+  uint32_t task_id;
+  /// @brief Camera device ID. 0 = front camera, 1 = back camera.
+  uint32_t device_id;
+};
+
+/// @brief Take photo command acknowledgment information.
+struct TakePhotoAck {
+  /// @brief Task ID supplied by caller.
+  uint32_t task_id;
+  /// @brief Camera device ID. 0 = front camera, 1 = back camera.
+  uint32_t device_id;
+  /// @brief Success status: 0 = success, non-zero = failure.
+  uint32_t error_code;
+  /// @brief Failure reason description.
+  std::string reason;
+};
+
+struct TaskStateInfo {
+  /// @brief task type
+  TaskType task_type;
+  /// @brief task status
+  TaskStatus task_status;
+  /// @brief reserve
+  std::string phase;
+  /// @brief error code
+  uint32_t error_code;  // 0 = success, non-zero = failure
+};
+
+struct PowerCtrlCfg {
+  /// @brief Peripheral power type.
+  PeripheralPower power;
+  /// @brief Enable or disable the power.
+  bool enable;
+};
+
+struct PowerCtrlAck {
+  /// @brief Peripheral power type.
+  PeripheralPower power;
+  /// @brief Enable or disable the power.
+  bool enable;
+};
+
+struct PosControlCmd {
+  float x;      // x position in meters
+  float y;      // y position in meters
+  float z;      // z position in meters
+  float roll;   // roll angle in radians
+  float pitch;  // pitch angle in radians
+  float yaw;    // yaw angle in radians
 };
 
 }  // namespace robot_sdk

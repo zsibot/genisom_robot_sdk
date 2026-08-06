@@ -29,10 +29,12 @@ class ROBOT_EXPORT_API IDataCallback {
   virtual void OnLuxData(const LuxData& data) {}
   virtual void OnMcData(const MotionData& data) {}
   virtual void OnSpeedData(const SpeedData& data) {}
+  virtual void OnJointStateData(const JointStateData& data) {}
   virtual void OnRobotStateData(const RobotState& data) {}
   virtual void OnFaultData(const FaultDatas& data) {}
   virtual void OnControlLost(const ControlLostInfo& info) {}
   virtual void OnControlAvailable(const ControlAvailableInfo& info) {}
+  virtual void OnTaskStateData(const TaskStateInfo& info) {}
 
   virtual ~IDataCallback() = default;
 };
@@ -56,8 +58,12 @@ class ROBOT_EXPORT_API IDataCallback {
 - **参数**：`const MotionData& data` — 运动数据结构  
 
 #### 🤖 `OnSpeedData`
-- **描述**：机器人速度数据回调
+- **描述**：机器人速度数据回调  
 - **参数**：`const SpeedData& data` — 速度数据结构  
+
+#### 🦾 `OnJointStateData`
+- **描述**：关节状态数据回调（配置后定频上报）  
+- **参数**：`const JointStateData& data` — 关节状态数据结构  
 
 #### 🤖 `OnRobotStateData`
 - **描述**：机器人状态数据回调（1Hz 主动上报）  
@@ -74,12 +80,15 @@ class ROBOT_EXPORT_API IDataCallback {
 #### 🔒 `OnControlAvailable`
 - **描述**：控制权可用回调  
 - **参数**：`const ControlAvailableInfo& info` — 控制权可用信息  
+
+#### 📋 `OnTaskStateData`
+- **描述**：任务状态数据回调（任务状态发生变化时上报），主要用作回充，回充退桩等任务  
+- **参数**：`const TaskStateInfo& info` — 任务状态信息  
 ---
 
 ## IControlCallback
 
 该接口用于接收机器人确认“已收到”控制命令的回调。  
-仅在**非阻塞模式**下使用。
 
 ### 定义
 
@@ -88,13 +97,18 @@ class ROBOT_EXPORT_API IControlCallback {
  public:
   virtual void OnSoftEmergencyStop(bool on) {}
   virtual void OnStandUp() {}
+  virtual void OnBalanceStandUp() {}
   virtual void OnLieDown() {}
+  virtual void OnStair() {}
   virtual void OnCrawl() {}
+  virtual void OnCrawlWalk() {}
   virtual void OnClimb() {}
   virtual void OnSlim() {}
   virtual void OnGait() {}
+  virtual void OnDSB() {}
+  virtual void OnPosControl() {}
+  virtual void OnSkWalk() {}
   virtual void OnReverseHeadTail() {}
-  virtual void OnMode(int mode) {}
   virtual void OnSpeed(int speed_level) {}
   virtual void OnLocked() {}
   virtual void OnFrontLight(bool on) {}
@@ -104,9 +118,19 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnImuConfig(int freq) {}
   virtual void OnMcConfig(bool on) {}
   virtual void OnSpeedReportConfig(bool on, uint32_t frequency) {}
+  virtual void OnJointStateConfig(bool on) {}
   virtual void OnTakeControlAck(const TakeControlAck& ack) {}
   virtual void OnReleaseControlAck(const ReleaseControlAck& ack) {}
   virtual void OnUpdateCameraBitrateAck(const CameraBitrateAck& ack) {}
+  virtual void OnTakePhotoAck(const TakePhotoAck& ack) {}
+  virtual void OnSwitchRemote() {}
+  virtual void OnSwitchIdle() {}
+  virtual void OnStartRechargeTask() {}
+  virtual void OnStopRechargeTask() {}
+  virtual void OnStartUnDockTask() {}
+  virtual void OnStopUnDockTask() {}
+  virtual void OnSetPeriphPower(const PowerCtrlAck& ack) {}
+  virtual void OnGetPeriphPower(const PowerCtrlAck& ack) {}
 
   virtual ~IControlCallback() = default;
 };
@@ -120,25 +144,40 @@ class ROBOT_EXPORT_API IControlCallback {
 |-----------|------|------|
 | `OnSoftEmergencyStop(bool on)` | 已收到急停命令 | `on = true` 开启急停；`on = false` 关闭急停 |
 | `OnStandUp()` | 已收到站立命令 | — |
+| `OnBalanceStandUp()` | 已收到平衡站立命令 | — |
 | `OnLieDown()` | 已收到卧倒命令 | — |
+| `OnStair()` | 已收到登阶命令 | — |
 | `OnCrawl()` | 已收到匍匐命令 | — |
+| `OnCrawlWalk()` | 已收到匍匐行走命令 | — |
 | `OnClimb()` | 已收到爬高台命令 | — |
 | `OnSlim()` | 已收到瘦身命令 | — |
 | `OnGait()` | 已收到步态命令 | — |
+| `OnDSB()` | 已收到挡鼠板命令 | — |
+| `OnPosControl()` | 已收到位控姿态命令 | — |
+| `OnSkWalk()` | 已收到同膝姿态命令 | — |
 | `OnReverseHeadTail()` | 已收到调转头尾命令 | — |
-| `OnMode(int mode)` | 已收到模式切换命令 | 模式编号 |
 | `OnSpeed(int speed_level)` | 已收到速度切换命令 | 速度档位 |
 | `OnLocked()` | 已收到锁定命令 | — |
-| `OnFrontLight(bool on)` | 已收到前补光灯命令 | `true` 开启，`false` 关闭 |
-| `OnBackLight(bool on)` | 已收到后补光灯命令 | `true` 开启，`false` 关闭 |
-| `OnAutoModeLight(bool on)` | 已收到自动补光灯模式命令 | `true` 开启，`false` 关闭 |
-| `OnLuxConfig(bool on)` | 已收到光强值配置命令 | `true` 开启，`false` 关闭 |
+| `OnFrontLight(bool on)` | 已收到前补光灯命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
+| `OnBackLight(bool on)` | 已收到后补光灯命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
+| `OnAutoModeLight(bool on)` | 已收到自动补光灯模式命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
+| `OnLuxConfig(bool on)` | 已收到光强值配置命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
 | `OnImuConfig(int freq)` | 已收到 IMU 配置命令 | 频率值 |
-| `OnMcConfig(bool on)` | 已收到运动数据配置命令 | `true` 开启，`false` 关闭 |
-| `OnSpeedReportConfig(bool on, uint32_t frequency)` | 已收到速度数据配置命令 | `true` 开启，`false` 关闭；`frequency` 频率值|
+| `OnMcConfig(bool on)` | 已收到运动数据配置命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
+| `OnSpeedReportConfig(bool on, uint32_t frequency)` | 已收到速度数据配置命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭；`frequency` 表示频率值 |
+| `OnJointStateConfig(bool on)` | 已收到关节状态配置命令 | `true` 表示下发的命令是开启，`false` 表示下发的命令是关闭 |
 | `OnTakeControlAck(const TakeControlAck& ack)` | 已收到获取控制权命令应答 | 应答信息 |
 | `OnReleaseControlAck(const ReleaseControlAck& ack)` | 已收到释放控制权命令应答 | 应答信息 |
 | `OnUpdateCameraBitrateAck(const CameraBitrateAck& ack)` | 已收到码率更新命令 | 应答信息，更新后的码率 |
+| `OnTakePhotoAck(const TakePhotoAck& ack)` | 已收到拍照命令应答 | 应答信息，包含任务 ID、设备 ID、错误码和失败原因 |
+| `OnSwitchRemote()` | 机器人已切换到远程控制状态 | — |
+| `OnSwitchIdle()` | 机器人已切换到空闲状态 | — |
+| `OnStartRechargeTask()` | 机器人已进入充电模式 | — |
+| `OnStopRechargeTask()` | 机器人已退出充电模式 | — |
+| `OnStartUnDockTask()` | 机器人已进入脱离充电桩模式 | — |
+| `OnStopUnDockTask()` | 机器人已退出脱离充电桩模式 | — |
+| `OnSetPeriphPower(const PowerCtrlAck& ack)` | 机器人已收到设置外设电源命令 | `ack` 内部返回下发的命令 |
+| `OnGetPeriphPower(const PowerCtrlAck& ack)` | 机器人已收到获取外设电源命令 | `ack` 内部表示当前外设电源状态 |
 
 ---
 

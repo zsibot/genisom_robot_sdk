@@ -55,6 +55,10 @@ class ROBOT_EXPORT_API IDataCallback {
   /// @brief Control ownership available callback.
   virtual void OnControlAvailable(const ControlAvailableInfo& info) {}
 
+  /// @brief Task state data callback (actively reported when task state
+  /// changes).
+  virtual void OnTaskStateData(const TaskStateInfo& info) {}
+
   virtual ~IDataCallback() = default;
 };
 
@@ -71,11 +75,20 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for stand up command received.
   virtual void OnStandUp() {}
 
+  /// @brief Acknowledgment for balance stand up command received.
+  virtual void OnBalanceStandUp() {}
+
   /// @brief Acknowledgment for lie down command received.
   virtual void OnLieDown() {}
 
+  /// @brief Acknowledgment for stair command received.
+  virtual void OnStair() {}
+
   /// @brief Acknowledgment for crawl command received.
   virtual void OnCrawl() {}
+
+  /// @brief Acknowledgment for crawl walk command received.
+  virtual void OnCrawlWalk() {}
 
   /// @brief Acknowledgment for climb command received.
   virtual void OnClimb() {}
@@ -89,12 +102,14 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for DSB command received.
   virtual void OnDSB() {}
 
+  /// @brief Acknowledgment for PosControl command received.
+  virtual void OnPosControl() {}
+
+  /// @brief Acknowledgment for SameKnee Walk command received.
+  virtual void OnSkWalk() {}
+
   /// @brief Acknowledgment for reverse head-tail command received.
   virtual void OnReverseHeadTail() {}
-
-  /// @brief Acknowledgment for mode switch command received.
-  /// @param mode The mode set by the user.
-  virtual void OnMode(int mode) {}
 
   /// @brief Acknowledgment for speed level switch command received.
   /// @param speed_level The speed level set by the user.
@@ -147,6 +162,36 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for camera bitrate update command received.
   /// @param ack Camera bitrate acknowledgment information.
   virtual void OnUpdateCameraBitrateAck(const CameraBitrateAck& ack) {}
+
+  /// @brief Acknowledgment for take photo command received.
+  /// @param ack Take photo acknowledgment information.
+  virtual void OnTakePhotoAck(const TakePhotoAck& ack) {}
+
+  /// @brief Notification that the robot has received the switching instruction.
+  virtual void OnSwitchRemote() {}
+
+  /// @brief Notification that the robot has received the switching instruction.
+  virtual void OnSwitchIdle() {}
+
+  /// @brief Notification that the robot has entered recharge mode.
+  virtual void OnStartRechargeTask() {}
+
+  /// @brief Notification that the robot has exited recharge mode.
+  virtual void OnStopRechargeTask() {}
+
+  /// @brief Notification that the robot has entered undock mode.
+  virtual void OnStartUnDockTask() {}
+
+  /// @brief Notification that the robot has exited undock mode.
+  virtual void OnStopUnDockTask() {}
+
+  /// @brief Acknowledgment for peripheral power control command received.
+  /// @param ack Peripheral power control acknowledgment information.
+  virtual void OnSetPeriphPower(const PowerCtrlAck& ack) {}
+
+  /// @brief Acknowledgment for peripheral power control command received.
+  /// @param ack Peripheral power control acknowledgment information.
+  virtual void OnGetPeriphPower(const PowerCtrlAck& ack) {}
 
   virtual ~IControlCallback() = default;
 };
