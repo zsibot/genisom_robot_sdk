@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+  <title id="title">SDK 网络架构图（中狗 M1 系列）</title>
+  <desc id="desc">中狗 M1 系列机器人内部网络：运控主机、导航主机经交换机互联，对外提供两个网口；SDK 主机可通过无线 WiFi 或有线网络接入。</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#0f172a" flood-opacity=".09"/>
+    </filter>
+    <marker id="m-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <marker id="m-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="m-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706"/>
+    </marker>
+    <style>
+      text { font-family: Inter, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 32px; font-weight: 750; }
+      .subtitle { font-size: 16px; fill: #475569; }
+      .panel-title { font-size: 20px; font-weight: 750; }
+      .box-title { font-size: 17px; font-weight: 750; text-anchor: middle; }
+      .box-text { font-size: 14px; font-weight: 650; text-anchor: middle; }
+      .box-sub { font-size: 13px; fill: #475569; text-anchor: middle; }
+      .link-label { font-size: 13px; }
+      .legend { font-size: 13px; fill: #475569; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="780" fill="#f8fafc"/>
+  <text x="40" y="56" class="title">机器人网络架构（中狗 M1 系列）</text>
+  <text x="40" y="88" class="subtitle">SDK 主机可通过无线 WiFi 或有线网络接入；控制指令与状态数据均与运控主机交互</text>
+
+  <!-- 图例 -->
+  <line x1="930" y1="50" x2="966" y2="50" stroke="#64748b" stroke-width="2"/>
+  <text x="974" y="55" class="legend">有线连接</text>
+  <line x1="1050" y1="50" x2="1086" y2="50" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 5"/>
+  <text x="1094" y="55" class="legend">无线连接</text>
+
+  <!-- 机器面板 -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="130" width="1120" height="500" rx="20" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+  </g>
+  <text x="72" y="176" class="panel-title">机器</text>
+
+  <!-- 运控主机 -->
+  <rect x="90" y="220" width="340" height="170" rx="12" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="260" y="260" class="box-title" fill="#1e40af">运控主机</text>
+  <text x="260" y="288" class="box-sub">运动控制 · 系统状态监控</text>
+  <text x="260" y="312" class="box-sub">WiFi-AP：192.168.234.1</text>
+  <text x="260" y="336" class="box-sub">有线 IP：192.168.168.168</text>
+  <text x="260" y="360" class="box-sub">端口：UDP 8082 · WebSocket 8081</text>
+
+  <!-- 交换机 -->
+  <rect x="520" y="250" width="180" height="100" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="2"/>
+  <text x="610" y="292" class="box-title">交换机</text>
+  <text x="610" y="318" class="box-sub">内部互联</text>
+
+  <!-- 导航主机 -->
+  <rect x="780" y="220" width="340" height="170" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+  <text x="950" y="260" class="box-title" fill="#15803d">导航主机</text>
+  <text x="950" y="288" class="box-sub">建图 · 定位导航 · 避障</text>
+  <text x="950" y="312" class="box-sub">有线 IP：192.168.168.100</text>
+
+  <!-- 网口 x2 -->
+  <rect x="520" y="480" width="180" height="90" rx="12" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <text x="610" y="517" class="box-title" fill="#b45309">网口 ×2</text>
+  <text x="610" y="543" class="box-sub">对外有线接入</text>
+
+  <!-- 内部链路 -->
+  <line x1="430" y1="300" x2="516" y2="300" stroke="#64748b" stroke-width="2" marker-end="url(#m-slate)"/>
+  <line x1="700" y1="300" x2="776" y2="300" stroke="#64748b" stroke-width="2" marker-end="url(#m-slate)"/>
+  <line x1="610" y1="350" x2="610" y2="476" stroke="#64748b" stroke-width="2" marker-end="url(#m-slate)"/>
+
+  <!-- 无线接入 -->
+  <line x1="260" y1="666" x2="260" y2="394" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#m-blue)"/>
+  <text x="278" y="540" class="link-label" fill="#1d4ed8">无线 WiFi</text>
+  <rect x="90" y="670" width="340" height="80" rx="12" fill="#ffffff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="260" y="702" class="box-text" fill="#1d4ed8">SDK 主机（无线接入）</text>
+  <text x="260" y="728" class="box-sub">连接机器人 WiFi-AP</text>
+
+  <!-- 有线接入 -->
+  <path d="M 950 666 V 610 H 610 V 574" fill="none" stroke="#d97706" stroke-width="2" marker-end="url(#m-orange)"/>
+  <text x="780" y="602" class="link-label" fill="#b45309">有线网络</text>
+  <rect x="780" y="670" width="340" height="80" rx="12" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+  <text x="950" y="702" class="box-text" fill="#b45309">SDK 主机（有线接入）</text>
+  <text x="950" y="728" class="box-sub">接入机器人网口，或同一局域网</text>
+</svg>

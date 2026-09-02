@@ -170,10 +170,6 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @param ack Camera bitrate acknowledgment information.
   virtual void OnUpdateCameraBitrateAck(const CameraBitrateAck& ack) {}
 
-  /// @brief Acknowledgment for take photo command received.
-  /// @param ack Take photo acknowledgment information.
-  virtual void OnTakePhotoAck(const TakePhotoAck& ack) {}
-
   /// @brief Notification that the robot has received the switching instruction.
   virtual void OnSwitchRemote() {}
 

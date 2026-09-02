@@ -7,6 +7,7 @@
 
 #include "robot_sdk/sdk_callback.hpp"
 #include "robot_sdk/sdk_connection.hpp"
+#include "robot_sdk/sdk_error.hpp"
 #include "robot_sdk/sdk_export.hpp"
 #include "robot_sdk/sdk_type.hpp"
 
@@ -181,10 +182,6 @@ class ROBOT_EXPORT_API SDKClient {
       CameraBitrateCmd cmd, int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
-  std::error_code TakePhoto(
-      TakePhotoCmd cmd, int timeout_ms = 0,
-      WriteHandler handler = [](const std::error_code&, std::size_t) {});
-
   std::error_code StartRechargeTask(
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
@@ -234,6 +231,8 @@ class ROBOT_EXPORT_API SDKClient {
   const std::string& ProtocolVersion() const;
 
   const std::string& SystemVersion() const;
+
+  DeviceInfo GetDeviceInfo() const;
 
  private:
   SDKClient(const SDKClient&) = delete;

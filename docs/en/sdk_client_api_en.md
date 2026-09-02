@@ -1,90 +1,105 @@
-# Robot SDK — `SDKClient` Class Interface Documentation
+# Robot SDK — `SDKClient` API Reference
 
 ## Overview
 
-`SDKClient` is the core communication class of the Robot SDK, providing connection, disconnection, and command sending interfaces.  
-Developers can use this class to implement robot motion control, mode switching, emergency stop, light control, data reporting configuration, and other functions.
+`SDKClient` is the core class of the Robot SDK. It manages the connection and sends all commands,
+covering motion & posture control, speed control, lights, data report configuration, control ownership,
+camera, recharge/undock tasks, peripheral power, and LED effects.
 
-**Working Modes:**
-- **Synchronous Mode (Blocking)**: `timeout_ms > 0`, function blocks waiting for operation completion or returns after timeout
-- **Asynchronous Mode (Non-blocking)**: `timeout_ms = 0`, function returns immediately, operation result notified through callback function
+- Namespace: `robot_sdk`; header: `robot_sdk/sdk_client.hpp`
+- Per-model API support: see the [API capability matrix](sdk_api_capability_en.md)
+- Callbacks (data reports and command ACKs): see the [Callback Reference](sdk_callback_en.md)
 
-**Note:** The `block` parameter is only used for `Connect` and `Disconnect` functions. Other control functions use the `timeout_ms` parameter to distinguish between synchronous/asynchronous modes.
+## Four Things to Know Before Reading
 
----
+### 1. Synchronous vs. Asynchronous Modes
 
-## Namespace
+Except `Connect`/`Disconnect`, every command API shares two common parameters:
 
-```cpp
-namespace robot_sdk
-```
+| Parameter | Type | Default | Description |
+|:--|:--|:--|:--|
+| `timeout_ms` | `int` | `0` | `0`: async mode; `> 0`: sync mode — max time to wait for the send to complete (ms) |
+| `handler` | `WriteHandler` | empty | Send-result callback in async mode; unused in sync mode |
 
----
+- **Async mode** (`timeout_ms = 0`): the function returns immediately; the return value only indicates
+  whether the command **entered the send pipeline**. The send result arrives via `handler`.
+- **Sync mode** (`timeout_ms > 0`): the function blocks until the send completes or times out;
+  the return value is the send result.
 
-## Class Definition
+> **Never use sync mode inside a callback.** Write completion also depends on the current I/O thread,
+> so the call cannot complete and will wait until it times out. See
+> [Threading Model](sdk_callback_en.md) in the callback guide.
 
-```cpp
-class ROBOT_EXPORT_API SDKClient
-```
+### 2. Two-Layer Result Semantics: "Sent" ≠ "Done"
 
----
+- The returned `std::error_code` only indicates whether the command was **sent** (layer 1).
+- The **business result** (layer 2) arrives through `IControlCallback` ACKs —
+  e.g. whether `TakeControl()` succeeded is determined by `error_code` in `OnTakeControlAck()`.
+- Most posture-command ACKs only mean "the robot received the command". Whether the action finished
+  should be observed via `RobotState` / `OnTaskStateData()`.
 
-## Error Code Mechanism
+### 3. Error Code Mechanism
 
-All interfaces return `std::error_code` type to indicate operation results:
-- **Success**: `ec.value() == 0` or `!ec`
-- **Failure**: `ec.value() != 0` or `ec` is true
-- Use `ec.message()` to obtain human-readable error description
+All APIs return `std::error_code`: success means `!ec` is true (`ec.value() == 0`);
+on failure, `ec.message()` gives a human-readable description.
+Full definitions are in the [Error Code Guide](sdk_error_en.md).
 
-**Example:**
+Common standard error codes:
 
-```cpp
-std::error_code ec = sdk.Connect("192.168.234.1", "8082", true);
-if (ec) {
-    std::cerr << "Connection failed: " << ec.message() << std::endl;
-} else {
-    std::cout << "Connection successful" << std::endl;
-}
-```
+| Error Code | Meaning |
+|:--|:--|
+| `std::errc::success` | Operation succeeded |
+| `std::errc::invalid_argument` | Invalid argument |
+| `std::errc::not_connected` | Not connected |
+| `std::errc::timed_out` | Operation timed out |
+| `std::errc::operation_canceled` | Operation canceled |
+| `std::errc::operation_in_progress` | Same operation already in progress |
 
-### SDK Common Error Codes
+SDK-specific error codes:
 
-Standard Error Codes
+| Error Code | Value | Meaning |
+|:--|:--:|:--|
+| `robot_sdk::Errc::ShakeHandFailed` | 10000 | Handshake failed |
+| `robot_sdk::Errc::ProtocolMismatch` | 10001 | Protocol version mismatch (common with older robots) |
+| `robot_sdk::Errc::ControlledDenial` | 10002 | Control denied (common with multiple connected clients) |
+| `robot_sdk::Errc::ConnectFailed` | 10003 | Connection failed |
+| `robot_sdk::Errc::UnsupportedDeviceOperation` | 10004 | Operation not supported by this model |
 
-| Error Code Enum | Integer Value | Meaning |
-|:--|:--|:--|
-| `std::errc::success` | 0 | Operation successful |
-| `std::errc::invalid_argument` | 22 | Invalid argument |
-| `std::errc::already_connected` | 106 | Already connected |
-| `std::errc::not_connected` | 107 | Not connected |
-| `std::errc::timed_out` | 110 | Operation timeout |
-| `std::errc::connection_refused` | 111 | Connection refused |
-| `std::errc::connection_already_in_progress` | 114 | Connection already in progress |
-| `std::errc::operation_in_progress` | 115 | Operation in progress |
-| `std::errc::operation_canceled` | 125 | Operation canceled |
+### 4. Control Ownership Prerequisite
 
-SDK Internal Extended Error Codes
+Normal control commands are executed by the robot only while the SDK owns control —
+except the software e-stop. See [Control Ownership](sdk_control_ownership_en.md).
 
-| Error Code Enum | Integer Value | Meaning |
-|:--|:--|:--|
-| `robot_sdk::errc::ShakeHandFailed` | 10000 | Handshake failed, commonly seen when internal handshake message not received during connection |
-| `robot_sdk::errc::ProtocolMismatch` | 10001 | Protocol mismatch, commonly seen when connecting to older robot versions |
-| `robot_sdk::errc::ControlledDenial` | 10002 | Control denied, commonly seen when multiple clients connect to the robot |
+## API Overview
 
----
+| Group | APIs |
+|:--|:--|
+| [Connection Management](#connection-management) | `Connect`, `Disconnect`, `IsConnected`, `GetConnectionState` |
+| [Callback Registration](#callback-registration) | `SetControlCallback`, `SetDataCallback` |
+| [Safety](#safety) | `SoftEmergencyStop` |
+| [Posture Control](#posture-control) | `StandUp`, `BalanceStandUp`, `LieDown`, `Stair`, `Crawl`, `CrawlWalk`, `Climb`, `Slim`, `Gait`, `DSB`, `PosControl`, `SkWalk`, `Sand`, `ReverseHeadTail`, `Locked` |
+| [Motion Control](#motion-control) | `Move`, `PosMove`, `Turn`, `ControlHead`, `HighLowStance`, `SetSpeed` |
+| [Lights & Perception Switches](#lights--perception-switches) | `FrontLight`, `BackLight`, `AutoModeLight`, `ObstacleAvoidance` |
+| [Data Report Configuration](#data-report-configuration) | `SetImuConfig`, `SetLuxConfig`, `SetMcConfig`, `SetSpeedReportConfig`, `SetJointStateConfig` |
+| [Control Ownership](#control-ownership) | `TakeControl`, `ReleaseControl` |
+| [Camera](#camera) | `UpdateCameraBitrate` |
+| [Tasks & State Switching](#tasks--state-switching) | `StartRechargeTask`, `StopRechargeTask`, `StartUnDockTask`, `StopUnDockTask`, `SwitchRemoteState`, `SwitchIdleState` |
+| [Peripheral Power](#peripheral-power) | `SetPeriphPower`, `GetPeriphPower` |
+| [LED Effects](#led-effects) | `SetLedAutoMode`, `GetLedAutoMode`, `SetLedCommand` |
+| [Version & Device Info](#version--device-info) | `Version`, `ProtocolVersion`, `SystemVersion`, `GetDeviceInfo` |
 
 ## Type Definitions
 
-| Type Name | Definition | Description |
+| Type | Definition | Description |
 |:--|:--|:--|
-| `ConnectHandler` | `std::function<void(const std::error_code&)>` | Connection completion callback function |
-| `DisConnectHandler` | `std::function<void(const std::error_code&)>` | Disconnection completion callback function |
-| `ErrorHandler` | `std::function<void(const std::error_code&)>` | SDK internal error callback function |
-| `WriteHandler` | `std::function<void(const std::error_code&, std::size_t)>` | Command sending completion callback function |
+| `ConnectHandler` | `std::function<void(const std::error_code&)>` | Connect completion callback |
+| `DisConnectHandler` | `std::function<void(const std::error_code&)>` | Disconnect completion callback |
+| `ErrorHandler` | `std::function<void(const std::error_code&)>` | SDK internal error callback (passed to the constructor) |
+| `WriteHandler` | `std::function<void(const std::error_code&, std::size_t)>` | Command send completion callback |
 
 ---
 
-## Constructor and Destructor
+## Construction & Destruction
 
 ### Constructor
 
@@ -94,21 +109,13 @@ SDKClient(ErrorHandler error_callback = [](const std::error_code&) {},
           TransportProtocol type = TransportProtocol::Udp)
 ```
 
-**Description:**  
-Construct an SDK client object.
-
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
+
+| Parameter | Type | Default | Description |
 |:--|:--|:--|:--|
-| `error_callback` | `ErrorHandler` | Empty callback | SDK internal communication exception callback function |
-| `connection_config` | `ConnectionConfig` | Default config | Connection configuration parameters |
-| `type` | `TransportProtocol` | `Udp` | Transport protocol type |
-
-**Related Types:**
-- `ConnectionConfig`: Connection configuration, see [Connection Configuration Documentation](sdk_connection_en.md)
-- `TransportProtocol`: Transport protocol type, see [Connection Configuration Documentation](sdk_connection_en.md)
-
----
+| `error_callback` | `ErrorHandler` | empty | SDK internal communication error callback |
+| `connection_config` | `ConnectionConfig` | defaults | Connect timeout, auto-reconnect, etc. See the [Connection Guide](sdk_connection_en.md) |
+| `type` | `TransportProtocol` | `Udp` | Transport: `Udp` (port 8082) or `WebSocket` (port 8081) |
 
 ### Destructor
 
@@ -116,1250 +123,547 @@ Construct an SDK client object.
 ~SDKClient()
 ```
 
-**Description:**  
-Destructor, automatically releases resources and disconnects.
+Stops the I/O threads, disconnects, and releases resources automatically. Calling `Disconnect()`
+explicitly is not required, but recommended for deterministic shutdown behavior.
 
 ---
 
 ## Connection Management
 
-### Connect - Connect to Robot
+### Connect — Connect to the Robot
 
 ```cpp
-std::error_code Connect(std::string ip, std::string port, 
-                        bool block = false, 
+std::error_code Connect(std::string ip, std::string port,
+                        bool block = false,
                         ConnectHandler handler = [](const std::error_code&) {})
 ```
 
-**Description:**  
-Connect to the robot at the specified IP and port.
-
-By default: when using WebSocket, you need to connect to port 8081 of the machine; when using UDP, you need to connect to port 8082 of the machine.
-
-⚠️ **Note:** 
-
-If the robot is already connected to the App, the SDK will not be able to control the robot.
+Initiates a connection and completes the handshake. Connecting has two phases —
+"establish the transport" and "handshake negotiation" — and only a successful handshake
+counts as connected.
 
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
+
+| Parameter | Type | Default | Description |
 |:--|:--|:--|:--|
-| `ip` | `std::string` | - | Target IP address |
-| `port` | `std::string` | - | Target port number |
-| `block` | `bool` | `false` | `false`: asynchronous mode; `true`: synchronous mode |
-| `handler` | `ConnectHandler` | Empty callback | Callback function after connection completion in asynchronous mode; not used in synchronous mode |
+| `ip` | `std::string` | — | Robot IP, e.g. `"192.168.234.1"` |
+| `port` | `std::string` | — | Port: `"8082"` for UDP (default), `"8081"` for WebSocket |
+| `block` | `bool` | `false` | `false`: async; `true`: sync (blocks until connected or failed) |
+| `handler` | `ConnectHandler` | empty | Result callback in async mode; unused in sync mode |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful (asynchronous mode means request sent; synchronous mode means connection completed)
-- Common failure error codes:
-  - `std::errc::operation_in_progress`: Operation in progress
-  - `std::errc::operation_canceled`: Operation canceled
+**Returns:**
 
-**Note:**
-- Asynchronous mode: Function return only indicates connection request sent; actual connection result notified through callback
-- Synchronous mode: Function return indicates connection result
+- Async mode: only whether the request was accepted; the result arrives via `handler`
+- Sync mode: the final result
+- Common failures: `Errc::ShakeHandFailed`, `Errc::ProtocolMismatch`, `Errc::ControlledDenial`,
+  `std::errc::operation_in_progress`
+
+> Note: connected ≠ owning control. If the APP is already connected and controlling the robot,
+> the SDK can only be an observer. See [Control Ownership](sdk_control_ownership_en.md).
 
 ---
 
-### Disconnect - Disconnect
+### Disconnect — Disconnect from the Robot
 
 ```cpp
-std::error_code Disconnect(bool block = false, 
+std::error_code Disconnect(bool block = false,
                            DisConnectHandler handler = [](const std::error_code&) {})
 ```
 
-**Description:**  
-Disconnect from the robot.
+Disconnects from the robot (in UDP mode a wave-hand frame is sent first to notify the robot).
 
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `block` | `bool` | `false` | `false`: asynchronous mode; `true`: synchronous mode |
-| `handler` | `DisConnectHandler` | Empty callback | Callback function after disconnection in asynchronous mode; not used in synchronous mode |
+**Parameters:** same as `Connect`'s `block` / `handler`.
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::operation_in_progress`: Operation in progress
-  - `std::errc::operation_canceled`: Operation canceled
-
-**Note:**
-- Asynchronous mode: Function return only indicates disconnect request sent; actual disconnect result notified through callback
-- Synchronous mode: Function return indicates disconnect result
+**Returns:** in async mode, whether the request was accepted; in sync mode, the final result.
+Calling it when already disconnected returns an appropriate error code.
 
 ---
 
-### IsConnected - Check Connection Status
+### IsConnected — Connection Check
 
 ```cpp
 bool IsConnected() const
 ```
 
-**Description:**  
-Check whether currently connected to the robot.
+Returns `true` when the current state is `ConnectionState::CONNECTED` (handshake completed).
 
-**Return Value:**  
-- `true`: Connected
-- `false`: Not connected
-
----
-
-### GetConnectionState - Get Connection State
+### GetConnectionState — Detailed Connection State
 
 ```cpp
 ConnectionState GetConnectionState() const
 ```
 
-**Description:**  
-Get current detailed connection state.
-
-**Return Value:**  
-`ConnectionState` enumeration value, see [Connection State Documentation](sdk_connection_en.md)
+Returns the `ConnectionState` enum (`DISCONNECTED` / `CONNECTING` / `HANDSHAKING` / `CONNECTED` /
+`DISCONNECTING` / `RECONNECTING`). See the [Connection Guide](sdk_connection_en.md).
 
 ---
 
-## Callback Configuration
+## Callback Registration
 
-### SetControlCallback - Set Control Callback
+### SetControlCallback — Register Command ACK Callbacks
 
 ```cpp
 void SetControlCallback(std::shared_ptr<IControlCallback> control_callback)
 ```
 
-**Description:**  
-Set control message notification function to receive command acknowledgments.
+Registers callbacks for command acknowledgments ("robot received the command" confirmations
+and business results). Full list: [Callback Reference](sdk_callback_en.md).
 
-**Parameters:**
-| Parameter Name | Type | Description |
-|:--|:--|:--|
-| `control_callback` | `std::shared_ptr<IControlCallback>` | Control callback object |
-
-**Related Documentation:**  
-See [Callback Reference](sdk_callback_en.md) for `IControlCallback` class description.
-
----
-
-### SetDataCallback - Set Data Callback
+### SetDataCallback — Register Data Report Callbacks
 
 ```cpp
 void SetDataCallback(std::shared_ptr<IDataCallback> data_callback)
 ```
 
-**Description:**  
-Set data message notification function, triggered when robot data is reported.
+Registers callbacks for data actively reported by the robot (sensors, state, faults,
+ownership events, etc.). Full list: [Callback Reference](sdk_callback_en.md).
 
-**Parameters:**
-| Parameter Name | Type | Description |
-|:--|:--|:--|
-| `data_callback` | `std::shared_ptr<IDataCallback>` | Data callback object |
-
-**Related Documentation:**  
-See [Callback Reference](sdk_callback_en.md) for `IDataCallback` class description.
+> Register callbacks before `Connect()` to avoid missing early reports.
 
 ---
 
-## Basic Control Interfaces
+## Safety
 
-### SoftEmergencyStop - Emergency Stop
+### SoftEmergencyStop — Software E-stop
 
 ```cpp
 std::error_code SoftEmergencyStop(bool on, int timeout_ms = 0,
-                                   WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Emergency stop control. After emergency stop is enabled, the system will not respond to other motion commands and speed will be set to 0.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `on` | `bool` | - | `true`: activate emergency stop; `false`: deactivate emergency stop |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-
-**Note:**
-- Asynchronous mode: Function return only indicates command sent; send result notified through callback
-- Synchronous mode: Function return indicates command send result
-
----
-
-### StandUp - Stand Up
-
-```cpp
-std::error_code StandUp(int timeout_ms = 0,
-                        WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Commands the robot to stand up. During the stand-up process, the reported
-`MotionStatus` is `MotionStatus::MOTION_STATUS_STAND_UP`. After the robot has
-finished standing up, the reported `MotionStatus` is
-`MotionStatus::MOTION_STATUS_WALK`.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### BalanceStandUp - Balance Stand Up
-
-```cpp
-std::error_code BalanceStandUp(int timeout_ms = 0,
-                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Robot balance stand up action.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### LieDown - Lie Down
-
-```cpp
-std::error_code LieDown(int timeout_ms = 0,
-                        WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Robot lie down action.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### Stair - Stair Climbing Posture
-
-```cpp
-std::error_code Stair(int timeout_ms = 0,
-                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Enter stair-climbing posture.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### Crawl - Crawl
-
-```cpp
-std::error_code Crawl(int timeout_ms = 0,
-                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Robot crawl action.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### CrawlWalk - Crawl Walk
-
-```cpp
-std::error_code CrawlWalk(int timeout_ms = 0,
-                          WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Robot crawl walk action.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### Climb - Climb
-
-```cpp
-std::error_code Climb(int timeout_ms = 0,
-                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Climb high platform action, only effective in **general mode**.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### Slim - Slim
-
-```cpp
-std::error_code Slim(int timeout_ms = 0,
-                     WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Slim (body compress) action, only effective in **general mode**.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### Gait - Gait
-
-```cpp
-std::error_code Gait(int timeout_ms = 0,
-                     WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Gait posture, only effective in **general mode**.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### DSB - Over the mouse barrier posture
-
-```cpp
-std::error_code DSB(int timeout_ms = 0,
-                     WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Over the mouse barrier posture, only effective in **general mode**.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### Sand - Sand Posture
-
-```cpp
-std::error_code Sand(int timeout_ms = 0,
-                     WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Switch the robot to sand posture, only effective in **general mode**. The underlying protocol action sent by the SDK is `action/snow`. When the device reports `motion_status = snow`, the SDK parses `RobotState::motion_status` as `MotionStatus::MOTION_STATUS_SAND`.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### ReverseHeadTail - Reverse Head/Tail
-
-```cpp
-std::error_code ReverseHeadTail(int timeout_ms = 0,
-                                 WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Reverse the robot's head and tail direction.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### SetSpeed - Set Speed Level
-
-```cpp
-std::error_code SetSpeed(int speed_level, int timeout_ms = 0,
-                         WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Set speed level, mainly affects the speed of the `Move` command in general mode, default is low speed.
-
-Low speed effect on Move interface:
-
-    forward_back:
-        [-1.0, 1.0] maps to [-1.0m/s, +1.0m/s]
-
-    left_right:
-        [-1.0, 1.0] maps to [-0.5m/s, +0.5m/s]
-
-    yaw:
-        [-1.0, 1.0] maps to [-1.5rad/s, +1.5rad/s]
-
-Medium speed effect on Move interface:
-
-    forward_back:
-        [-1.0, 1.0] maps to [-2.0m/s, +2.0m/s]
-
-    left_right:
-        When -1.0m/s < forward_back < 1.0m/s, [-1.0, 1.0] maps to [-0.5m/s, +0.5m/s]
-        When forward_back > 1.0m/s or forward_back < -1.0m/s, limited to 0m/s
-
-    yaw:
-        When -1.0m/s < forward_back < 1.0m/s, [-1.0, 1.0] maps to [-1.5rad/s, +1.5rad/s]
-        When forward_back > 1.0m/s or forward_back < -1.0m/s, [-1.0, 1.0] maps to [-1.0rad/s, +1.0rad/s]
-
-High speed effect on Move interface:
-
-    forward_back:
-        [-1.0, 1.0] maps to [-3.0m/s, +3.0m/s]
-
-    left_right:
-        When -1.0m/s < forward_back < 1.0m/s, [-1.0, 1.0] maps to [-0.5m/s, +0.5m/s]
-        When forward_back > 1.0m/s or forward_back < -1.0m/s, limited to 0m/s
-
-    yaw:
-        When -1.0m/s < forward_back < 1.0m/s, [-1.0, 1.0] maps to [-1.5rad/s, +1.5rad/s]
-        When forward_back > 1.0m/s or forward_back < -1.0m/s, [-1.0, 1.0] maps to [-1.0rad/s, +1.0rad/s]
-        When forward_back > 2.0m/s or forward_back < -2.0m/s, [-1.0, 1.0] maps to [-0.5rad/s, +0.5rad/s]
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `speed_level` | `int` | - | `1`: low speed; `2`: medium speed; `3`: high speed (range [1, 3]) |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### Locked - Lock
-
-```cpp
-std::error_code Locked(int timeout_ms = 0,
-                       WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Lock the robot, keeping all joints at their current positions without movement.
-
-**Parameters:**  
-Same as `StandUp`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
-**Note:**  
-When issuing commands to transition to other motion states (stand up, crawl, lie down), the lock is automatically released and transitions to the corresponding action state.
-
----
-
-## Light Control Interfaces
-
-### FrontLight - Front Fill Light
-
-```cpp
-std::error_code FrontLight(bool on, int timeout_ms = 0,
-                           WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Set front fill light; automatic mode is disabled after setting.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `on` | `bool` | - | `true`: on; `false`: off |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### BackLight - Back Fill Light
-
-```cpp
-std::error_code BackLight(bool on, int timeout_ms = 0,
-                          WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Set back fill light; automatic mode is disabled after setting.
-
-**Parameters:**  
-Same as `FrontLight`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### AutoModeLight - Auto Fill Light Mode
-
-```cpp
-std::error_code AutoModeLight(bool on, int timeout_ms = 0,
-                              WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Set automatic fill light mode.
-
-**Parameters:**  
-Same as `FrontLight`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### ObstacleAvoidance - Obstacle Avoidance Switch
-
-```cpp
-std::error_code ObstacleAvoidance(bool on, int timeout_ms = 0,
                                   WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-Enable or disable obstacle avoidance.
+Triggers or releases the software e-stop. While triggered, the robot ignores other motion
+commands and forces velocity to zero. **The e-stop is not restricted by ownership** —
+observers may call it too, so safety logic never has to wait for control.
 
-**Parameters:**  
-Same as `FrontLight`
+**Parameters:**
 
-**Return Value:**  
-Same as `SoftEmergencyStop`
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `on` | `bool` | `true`: trigger e-stop; `false`: release e-stop |
+
+**ACK:** `OnSoftEmergencyStop(bool on)`. **State check:** `RobotState::software_emergency_status`.
 
 ---
 
-## Motion and Posture Control
+## Posture Control
 
-### Move - Move
+The following APIs are all posture-switch commands taking only the common
+`timeout_ms` / `handler` parameters (see [Sync vs. Async](#1-synchronous-vs-asynchronous-modes)).
+Each has a one-to-one ACK callback (see the [Callback Reference](sdk_callback_en.md)).
 
 ```cpp
-std::error_code Move(float left_right, float forward_back, float yaw, 
+std::error_code StandUp(int timeout_ms = 0, WriteHandler handler = ...);        // Stand up
+std::error_code BalanceStandUp(int timeout_ms = 0, WriteHandler handler = ...); // Balance stand
+std::error_code LieDown(int timeout_ms = 0, WriteHandler handler = ...);        // Lie down
+std::error_code Stair(int timeout_ms = 0, WriteHandler handler = ...);          // Stair posture
+std::error_code Crawl(int timeout_ms = 0, WriteHandler handler = ...);          // Crawl
+std::error_code CrawlWalk(int timeout_ms = 0, WriteHandler handler = ...);      // Crawl walk
+std::error_code Climb(int timeout_ms = 0, WriteHandler handler = ...);          // Climb platform (general mode)
+std::error_code Slim(int timeout_ms = 0, WriteHandler handler = ...);           // Slim / narrow passage (general mode)
+std::error_code Gait(int timeout_ms = 0, WriteHandler handler = ...);           // Gait (general mode)
+std::error_code DSB(int timeout_ms = 0, WriteHandler handler = ...);            // DSB (general mode)
+std::error_code PosControl(int timeout_ms = 0, WriteHandler handler = ...);     // Enter position-control posture (general mode)
+std::error_code SkWalk(int timeout_ms = 0, WriteHandler handler = ...);         // SameKnee walk (general mode)
+std::error_code Sand(int timeout_ms = 0, WriteHandler handler = ...);           // Sand posture (general mode)
+std::error_code ReverseHeadTail(int timeout_ms = 0, WriteHandler handler = ...);// Reverse head/tail
+std::error_code Locked(int timeout_ms = 0, WriteHandler handler = ...);         // Lock joints
+```
+
+Key notes:
+
+- **StandUp**: while standing up, `RobotState::motion_status` reports `MOTION_STATUS_STAND_UP`;
+  once finished, it becomes `MOTION_STATUS_WALK`.
+- **Locked**: joints hold their current positions; issuing another posture command
+  (stand up / lie down / crawl...) unlocks automatically.
+- **Sand**: the wire-protocol action is `action/snow`; the device-reported `snow` state is parsed
+  by the SDK as `MOTION_STATUS_SAND`.
+- **Model restrictions**: `Slim`, `DSB`, `SkWalk`, and `Sand` are not supported on the L2
+  series; `ReverseHeadTail` is unsupported on the L2 series and on `DeviceType::M1_AIR` /
+  `DeviceType::M1F_AIR`; `Gait` is unsupported on the L2F point-foot variants
+  (`DeviceType::L2F`, `DeviceType::L2F_ULTRA`).
+  On unsupported models the SDK does not send the command and returns
+  `robot_sdk::Errc::UnsupportedDeviceOperation`. Full matrix: [API capability matrix](sdk_api_capability_en.md).
+
+```cpp
+auto ec = client.SkWalk();
+if (ec == robot_sdk::Errc::UnsupportedDeviceOperation) {
+    // SameKnee walk is not supported on this model
+}
+```
+
+---
+
+## Motion Control
+
+### Move — Move
+
+```cpp
+std::error_code Move(float left_right, float forward_back, float yaw,
                      int timeout_ms = 0,
                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-Used in **general mode** to move the robot, unit: percentage, speed limited by **SpeedLevel**.
-
-The latest Move command will last for 1 second.
+Moves the robot in general mode. All three arguments are normalized ratios; the actual speed
+is scaled by the current speed level (`SetSpeed`) — see the
+[SpeedLevel mapping table](sdk_type_en.md#speedlevel--speed-level). The latest Move command
+stays effective on the robot for 1 second, so send it periodically (10–20 Hz recommended)
+for continuous motion.
 
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
+
+| Parameter | Type | Range | Description |
 |:--|:--|:--|:--|
-| `left_right` | `float` | - | Left/right lateral velocity, range [-1.0, 1.0]; positive for left, negative for right |
-| `forward_back` | `float` | - | Forward/backward velocity, range [-1.0, 1.0]; positive for forward, negative for backward |
-| `yaw` | `float` | - | Rotation velocity, range [-1.0, 1.0]; positive for left rotation, negative for right rotation |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+| `left_right` | `float` | [-1.0, 1.0] | Lateral speed ratio; positive = left, negative = right |
+| `forward_back` | `float` | [-1.0, 1.0] | Forward speed ratio; positive = forward, negative = backward |
+| `yaw` | `float` | [-1.0, 1.0] | Rotation speed ratio; positive = turn left, negative = turn right |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-  - `std::errc::invalid_argument`: Invalid argument
-
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+**Returns:** out-of-range arguments yield `std::errc::invalid_argument`;
+see [Error Code Mechanism](#3-error-code-mechanism) for others.
+**ACK:** none — check the `WriteHandler` send result only.
 
 ---
 
-### Turn - Turn
+### PosMove — Position-Control Move
+
+```cpp
+std::error_code PosMove(PosControlCmd cmd, int timeout_ms = 0,
+                        WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+Sets the target body pose in position-control mode; enter the posture first via `PosControl()`.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `cmd` | `PosControlCmd` | Target pose: `x/y/z` (m) and `roll/pitch/yaw` (rad). See [PosControlCmd](sdk_type_en.md#position-control) |
+
+---
+
+### Turn — Body Roll
 
 ```cpp
 std::error_code Turn(int direction, int timeout_ms = 0,
                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-In-place left/right roll action (only effective in **in-place mode**).
+Rolls the body left/right in place (in-place mode only).
 
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `direction` | `int` | - | 0: recover; 1: left roll; 2: right roll |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `direction` | `int` | `0`: recover; `1`: roll left; `2`: roll right (range [0, 2]) |
 
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+**Returns:** out-of-range `direction` yields `std::errc::invalid_argument`.
 
 ---
 
-### ControlHead - Control Head
+### ControlHead — Head Control
 
 ```cpp
 std::error_code ControlHead(float left_right, float up_down, int timeout_ms = 0,
                             WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-Control robot "left/right head" and "head up/down" actions (only effective in **in-place mode**).
+Controls "lean head left/right" and "look up/down" (in-place mode only).
 
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
+
+| Parameter | Type | Range | Description |
 |:--|:--|:--|:--|
-| `left_right` | `float` | - | Range [-1.0, 1.0]; positive: left head, negative: right head; unit rad/s |
-| `up_down` | `float` | - | Range [-1.0, 1.0]; positive: head up, negative: head down; unit rad/s |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+| `left_right` | `float` | [-1.0, 1.0] | Positive = lean left, negative = lean right (rad/s) |
+| `up_down` | `float` | [-1.0, 1.0] | Positive = look up, negative = look down (rad/s) |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-  - `std::errc::invalid_argument`: Invalid argument
-
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+**Returns:** out-of-range arguments yield `std::errc::invalid_argument`.
 
 ---
 
-### HighLowStance - High/Low Stance
+### HighLowStance — High/Low Stance
 
 ```cpp
 std::error_code HighLowStance(int stance, int timeout_ms = 0,
                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-Set high/low stance (only effective in **in-place mode**).
+Adjusts body height stance (in-place mode only).
 
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `stance` | `int` | - | 0: recover; 1: high stance; 2: low stance |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-  - `std::errc::invalid_argument`: Invalid argument
-
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `stance` | `int` | `0`: recover; `1`: high stance; `2`: low stance (range [0, 2]) |
 
 ---
 
-## Data Configuration Interfaces
-
-### SetImuConfig - Configure IMU
+### SetSpeed — Set Speed Level
 
 ```cpp
-std::error_code SetImuConfig(int freq, int timeout_ms = 0,
-                             WriteHandler handler = [](const std::error_code&, std::size_t) {})
+std::error_code SetSpeed(int speed_level, int timeout_ms = 0,
+                         WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-Configure IMU reporting frequency, disabled by default.
+Sets the speed level, which scales the actual velocity limits of `Move()` in general mode
+(default: low). See the [SpeedLevel mapping table](sdk_type_en.md#speedlevel--speed-level)
+for how normalized values map to real speeds at each level.
 
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `freq` | `int` | - | Range [0, 100]; 0 disables reporting |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `speed_level` | `int` | `1`: low; `2`: medium; `3`: high (range [1, 3]) |
 
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+**Returns:** out-of-range level yields `std::errc::invalid_argument`.
+**ACK:** `OnSpeed(int speed_level)`; the current level is also in `RobotState::speed_level`.
 
 ---
 
-### SetLuxConfig - Configure Light Intensity
+## Lights & Perception Switches
 
 ```cpp
-std::error_code SetLuxConfig(bool on, int timeout_ms = 0,
-                             WriteHandler handler = [](const std::error_code&, std::size_t) {})
+std::error_code FrontLight(bool on, int timeout_ms = 0, WriteHandler handler = ...);        // Front fill light
+std::error_code BackLight(bool on, int timeout_ms = 0, WriteHandler handler = ...);         // Back fill light
+std::error_code AutoModeLight(bool on, int timeout_ms = 0, WriteHandler handler = ...);     // Auto light mode
+std::error_code ObstacleAvoidance(bool on, int timeout_ms = 0, WriteHandler handler = ...); // Obstacle avoidance
 ```
 
-**Description:**  
-Configure light intensity value reporting switch, disabled by default. After configuration, light intensity value is reported at 1Hz.
-
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `on` | `bool` | - | `true`: enable; `false`: disable |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `on` | `bool` | `true`: enable; `false`: disable |
 
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+Key notes:
+
+- Calling `FrontLight` / `BackLight` manually disables the auto light mode.
+- **Model restrictions**: `BackLight` is unsupported on the L2 series and on
+  `DeviceType::M1_AIR` / `DeviceType::M1F_AIR`; `ObstacleAvoidance` is unsupported on the L2 series.
+  Both return `Errc::UnsupportedDeviceOperation`.
+- Current states are available in `RobotState` (`front_fill_light`, `back_fill_light`,
+  `auto_mode_light`, `obstacle_avoidance`).
 
 ---
 
-### SetMcConfig - Configure Motion Data
+## Data Report Configuration
+
+By default the robot only reports `RobotState` (1 Hz) and fault data. Enable more streams on demand:
 
 ```cpp
-std::error_code SetMcConfig(bool on, int timeout_ms = 0,
-                            WriteHandler handler = [](const std::error_code&, std::size_t) {})
+std::error_code SetImuConfig(int freq, int timeout_ms = 0, WriteHandler handler = ...);                 // IMU
+std::error_code SetLuxConfig(bool on, int timeout_ms = 0, WriteHandler handler = ...);                  // Illuminance
+std::error_code SetMcConfig(bool on, int timeout_ms = 0, WriteHandler handler = ...);                   // Motion data
+std::error_code SetSpeedReportConfig(bool on, uint32_t frequency, int timeout_ms = 0, WriteHandler handler = ...); // Speed
+std::error_code SetJointStateConfig(bool on, int timeout_ms = 0, WriteHandler handler = ...);           // Joint states
 ```
 
-**Description:**  
-Configure motion data reporting switch, disabled by default. After configuration, motion data is reported at 50Hz.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
+| API | Parameters | Data Callback | Report Rate |
 |:--|:--|:--|:--|
-| `on` | `bool` | - | `true`: enable; `false`: disable |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+| `SetImuConfig` | `freq`: [0, 100], 0 disables | `OnImuData` | As configured |
+| `SetLuxConfig` | `on`: switch | `OnLuxData` | Fixed 1 Hz |
+| `SetMcConfig` | `on`: switch | `OnMcData` | Fixed 50 Hz |
+| `SetSpeedReportConfig` | `on` + `frequency`: [1, 50] Hz | `OnSpeedData` | As configured |
+| `SetJointStateConfig` | `on`: switch | `OnJointStateData` | Fixed rate |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+Each configuration has a matching config ACK (`OnImuConfig`, etc.). Struct definitions:
+[Data Types Reference](sdk_type_en.md).
 
 ---
 
-### SetSpeedReportConfig - Configure Speed Data
+## Control Ownership
 
-```cpp
-std::error_code SetSpeedReportConfig(bool on, uint32_t frequency, int timeout_ms = 0,
-                            WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Configure speed data reporting switch, disabled by default. After configuration, speed data is reported.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `on` | `bool` | - | `true`: enable; `false`: disable |
-| `frequency` | `uint32_t` | - | report frequency. [1hz, 50hz] |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
-
----
-
-### SetJointStateConfig - Configure Joint State Data
-
-```cpp
-std::error_code SetJointStateConfig(bool on, int timeout_ms = 0,
-                                    WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Configure joint state data reporting switch, disabled by default.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `on` | `bool` | - | `true`: enable; `false`: disable |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
-
----
-
-### TakeControl - Take Control
+### TakeControl — Request Ownership
 
 ```cpp
 std::error_code TakeControl(int timeout_ms = 0,
                             WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-Take control of the robot. If the APP is currently in control, you cannot forcibly take over.See [sdk_control_ownership](sdk_control_ownership_en.md)
+Requests control ownership of the robot. Note:
 
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+- The return value only indicates whether the request was sent — **whether ownership was
+  acquired is determined by `error_code` in `OnTakeControlAck()`** (`0` = success;
+  see `reason` on failure).
+- If the APP is still connected to the robot, the request fails — wait for
+  `OnControlAvailable()` before requesting.
+- Full rules and the recommended handling flow: [Control Ownership](sdk_control_ownership_en.md).
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
-
----
-
-### ReleaseControl - Release Control
+### ReleaseControl — Release Ownership
 
 ```cpp
 std::error_code ReleaseControl(int timeout_ms = 0,
                                WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-Release control of the robot.
+Voluntarily releases the ownership currently held; the result is reported by
+`OnReleaseControlAck()`. Call this when exiting or when control is no longer needed,
+so ownership becomes available to other clients sooner.
+
+---
+
+## Camera
+
+### UpdateCameraBitrate — Update Camera Bitrate
+
+```cpp
+std::error_code UpdateCameraBitrate(CameraBitrateCmd cmd, int timeout_ms = 0,
+                                    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
 
 **Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
 
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `cmd` | `CameraBitrateCmd` | `camera_name` (`"camera_front"` / `"camera_back"`) + `camera_bps` (50000–100000000 bps) |
 
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-Synchronous mode: Function return indicates command send result
+**ACK:** `OnUpdateCameraBitrateAck()`; the `camera_bps` in it is the value actually applied
+by the device.
 
 ---
 
-### UpdateCameraBitrate - Update Camera Bitrate
+## Tasks & State Switching
 
 ```cpp
-std::error_code UpdateCameraBitrate(
-    CameraBitrateCmd cmd, int timeout_ms = 0,
-    WriteHandler handler = [](const std::error_code&, std::size_t) {});
+std::error_code StartRechargeTask(int timeout_ms = 0, WriteHandler handler = ...);  // Start recharge
+std::error_code StopRechargeTask(int timeout_ms = 0, WriteHandler handler = ...);   // Stop recharge
+std::error_code StartUnDockTask(int timeout_ms = 0, WriteHandler handler = ...);    // Start undock
+std::error_code StopUnDockTask(int timeout_ms = 0, WriteHandler handler = ...);     // Stop undock
+std::error_code SwitchRemoteState(int timeout_ms = 0, WriteHandler handler = ...);  // Switch to remote state
+std::error_code SwitchIdleState(int timeout_ms = 0, WriteHandler handler = ...);    // Switch to idle state
 ```
 
-**Description:**  
-Update camera bitrate. The underlying protocol always uses `type=1019`, `data.target=805`, with `camera_name` / `camera_bps` carried under `data.params`.
+Key notes:
 
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `cmd` | `CameraBitrateCmd` | - | Configure specific camera bitrate |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-
-**Note:**  
-- Wire protocol is fixed to `type=1019`, `data.target=805`
-- `camera_bps` in the acknowledgment is the actual value returned by the device
-- Asynchronous mode: Function return only indicates command sent; send result notified through callback  
-- Synchronous mode: Function return indicates command send result
+- For task APIs (recharge/undock), "entered/exited" is confirmed via `OnStartRechargeTask()` etc.;
+  **task progress and final results** are reported via `OnTaskStateData()` (`TaskStateInfo`).
+  Full state flow and usage tips: [Recharge & Undock Task Guide](sdk_recharge_task_en.md).
+- `SwitchRemoteState` / `SwitchIdleState` switch `MachineStatus` (`REMOTE` ↔ `IDLE`);
+  their ACKs are `OnSwitchRemote()` / `OnSwitchIdle()`.
 
 ---
 
-### TakePhoto - Take Photo
+## Peripheral Power
+
+### SetPeriphPower — Set Peripheral Power
 
 ```cpp
-std::error_code TakePhoto(
-    TakePhotoCmd cmd, int timeout_ms = 0,
-    WriteHandler handler = [](const std::error_code&, std::size_t) {});
-```
-
-**Description:**  
-Send a take-photo command to the robot. `device_id` `0` means front camera, and `1` means back camera. The photo result is reported through `OnTakePhotoAck(const TakePhotoAck& ack)`.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `cmd` | `TakePhotoCmd` | - | Photo task parameters, including `task_id` and `device_id` |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-- `std::errc::success`: Operation successful
-- Common failure error codes:
-  - `std::errc::invalid_argument`: Invalid `device_id`; only `0` and `1` are supported
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
-
-**Example:**
-```cpp
-TakePhotoCmd cmd;
-cmd.task_id = 1;
-cmd.device_id = static_cast<uint32_t>(PhotoDeviceId::FRONT);
-
-std::error_code ec = sdk.TakePhoto(cmd, 1000);
-```
-
-**Note:**  
-Asynchronous mode: Function return only indicates command sent; send result is notified through `handler`, and the business result is notified through `OnTakePhotoAck`  
-Synchronous mode: Function return indicates command send result; the business result is still notified through `OnTakePhotoAck`
-
----
-
-## Task Control Interfaces
-
-### StartRechargeTask - Start Recharge Task
-
-```cpp
-std::error_code StartRechargeTask(int timeout_ms = 0,
-                                  WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Start the robot recharge task.
-
-**Parameters:**
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### StopRechargeTask - Stop Recharge Task
-
-```cpp
-std::error_code StopRechargeTask(int timeout_ms = 0,
-                                 WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Stop the robot recharge task.
-
-**Parameters:**  
-Same as `StartRechargeTask`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### StartUnDockTask - Start Undock Task
-
-```cpp
-std::error_code StartUnDockTask(int timeout_ms = 0,
-                                WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Start the robot undock task.
-
-**Parameters:**  
-Same as `StartRechargeTask`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### StopUnDockTask - Stop Undock Task
-
-```cpp
-std::error_code StopUnDockTask(int timeout_ms = 0,
+std::error_code SetPeriphPower(const PowerCtrlCfg& cfg, int timeout_ms = 0,
                                WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-**Description:**  
-Stop the robot undock task.
-
-**Parameters:**  
-Same as `StartRechargeTask`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### SwitchRemoteState - Switch Remote State
-
-```cpp
-std::error_code SwitchRemoteState(int timeout_ms = 0,
-                                  WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Switch the robot to remote control state.
-
-**Parameters:**  
-Same as `StartRechargeTask`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### SwitchIdleState - Switch Idle State
-
-```cpp
-std::error_code SwitchIdleState(int timeout_ms = 0,
-                                WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Switch the robot to idle state.
-
-**Parameters:**  
-Same as `StartRechargeTask`
-
-**Return Value:**  
-Same as `SoftEmergencyStop`
-
----
-
-### SetPeriphPower - Set Peripheral Power
-
-```cpp
-std::error_code SetPeriphPower(
-    const PowerCtrlCfg& cfg, int timeout_ms = 0,
-    WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Set the state of a peripheral power channel.
+Switches a peripheral power channel on or off.
 
 **Parameters:**
 
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `cfg` | `PowerCtrlCfg` | — | Peripheral power control configuration |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `cfg` | `PowerCtrlCfg` | `power`: `M1_12V` / `M1_24V` / `M1_48V`; `enable`: `true` on / `false` off |
 
-**Return Value:**  
-- `std::errc::success`: Operation succeeded
-- Common failure codes:
-  - `std::errc::timed_out`: Operation timeout
-  - `std::errc::not_connected`: Not connected
-  - `std::errc::operation_canceled`: Operation canceled
+**Returns:** invalid `power` yields `std::errc::invalid_argument`.
+**ACK:** `OnSetPeriphPower()` echoes the requested channel and state.
 
-**Notes:**  
-In asynchronous mode, the function return value only indicates that the command was accepted for sending; the final sending result is reported through the callback.  
-In synchronous mode, the function return value indicates the command sending result directly.
+### GetPeriphPower — Query Peripheral Power
+
+```cpp
+std::error_code GetPeriphPower(const PowerCtrlCfg& cfg, int timeout_ms = 0,
+                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+Queries the current state of a power channel (only the `power` field of `cfg` is used).
+**The query result arrives via `OnGetPeriphPower()`** (`ack.enable` is the actual state);
+the function itself does not return the queried value.
 
 ---
 
-### GetPeriphPower - Get Peripheral Power State
+## LED Effects
 
 ```cpp
-std::error_code GetPeriphPower(
-    const PowerCtrlCfg& cfg, int timeout_ms = 0,
-    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+std::error_code SetLedAutoMode(bool auto_mode, int timeout_ms = 0, WriteHandler handler = ...);  // Set auto/manual mode
+std::error_code GetLedAutoMode(int timeout_ms = 0, WriteHandler handler = ...);                  // Query auto/manual mode
+std::error_code SetLedCommand(const LedCommand& cmd, int timeout_ms = 0, WriteHandler handler = ...); // Set LED effect
 ```
 
-**Description:**  
-Query the current state of a peripheral power channel.
+Key notes:
 
-**Parameters:**
+- In **auto mode**, effects are switched by the robot according to its state;
+  in **manual mode**, effects are controlled by `SetLedCommand()`.
+- `SetLedCommand` returns `std::errc::invalid_argument` when `cmd.id` or `cmd.effect` is `UNKNOWN`.
+- Query/set results arrive via `OnGetLedAutoMode()` / `OnSetLedAutoMode()` / `OnSetLedCommand()`.
+- Effect parameters (group, effect, color, period) and complete examples:
+  [LED Control Guide](sdk_led_control_en.md).
 
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `cfg` | `PowerCtrlCfg` | — | Peripheral power query configuration. The `power` field specifies which channel to query |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-Same as `SetPeriphPower`
-
-**Notes:**  
-The queried state is returned through the corresponding control callback acknowledgment (`OnGetPeriphPower`) in non-blocking workflows.
-
----
-
-### SetLedAutoMode - Set LED Auto/Manual Mode
-
-```cpp
-std::error_code SetLedAutoMode(
-    bool auto_mode, int timeout_ms = 0,
-    WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Set LED auto/manual mode. `auto_mode=true` enables auto mode, and `false` selects manual mode.
-
-**Parameters:**
-
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `auto_mode` | `bool` | — | `true`: auto mode; `false`: manual mode |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Return Value:**  
-Same as `SetPeriphPower`
-
-**Notes:**  
-In non-blocking workflows, the result is reported through `OnSetLedAutoMode`.
-
----
-
-### GetLedAutoMode - Get LED Auto/Manual Mode
-
-```cpp
-std::error_code GetLedAutoMode(
-    int timeout_ms = 0,
-    WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Query whether LED auto mode is currently enabled.
-
-**Parameters:**  
-Same as `SetLedAutoMode`, without the `auto_mode` parameter.
-
-**Return Value:**  
-Same as `SetPeriphPower`
-
-**Notes:**  
-The query result is reported through `OnGetLedAutoMode`.
-
----
-
-### SetLedCommand - Set LED Effect
-
-```cpp
-std::error_code SetLedCommand(
-    const LedCommand& cmd, int timeout_ms = 0,
-    WriteHandler handler = [](const std::error_code&, std::size_t) {})
-```
-
-**Description:**  
-Set the LED group, effect, color, and period. This uses protocol `1019` with `target=812`; `1020` query is not supported for this target.
-
-**Parameters:**
-
-| Parameter Name | Type | Default Value | Description |
-|:--|:--|:--|:--|
-| `cmd` | `LedCommand` | — | LED effect command |
-| `timeout_ms` | `int` | `0` | `0`: asynchronous mode; `> 0`: synchronous mode, maximum wait time (milliseconds) |
-| `handler` | `WriteHandler` | Empty callback | Command sending result callback in asynchronous mode; not used in synchronous mode |
-
-**Example:**
 ```cpp
 LedCommand cmd{LedId::ALL, LedEffect::BLINK, {255, 128, 0, 255}, 300};
-sdk.SetLedCommand(cmd);
+client.SetLedCommand(cmd);
 ```
 
-**Return Value:**  
-Returns `std::errc::invalid_argument` when `cmd.id` or `cmd.effect` is `UNKNOWN`; otherwise same as `SetPeriphPower`.
-
 ---
 
-## Version Information
+## Version & Device Info
 
-### `const std::string& Version() const`
-
-Get SDK version string.
-
----
-
-### `const std::string& ProtocolVersion() const`
-
-Get protocol version string.
-
----
-
-### `const std::string& SystemVersion() const`
-
-Get system version string.
-
----
-
-## Code Examples
+### Version — SDK Version
 
 ```cpp
+const std::string& Version() const
+```
+
+Returns the SDK's own version string (e.g. `"1.2.0"`). Available at any time.
+
+### ProtocolVersion — Protocol Version
+
+```cpp
+const std::string& ProtocolVersion() const
+```
+
+Returns the communication protocol version used by the SDK. Available at any time.
+The robot validates this version during the handshake; a mismatch fails the connection
+with `Errc::ProtocolMismatch`.
+
+### SystemVersion — Robot System Version
+
+```cpp
+const std::string& SystemVersion() const
+```
+
+Returns the robot-side system version. **Valid only after a successful handshake**;
+empty while not connected.
+
+### GetDeviceInfo — Get Device Info
+
+```cpp
+DeviceInfo GetDeviceInfo() const
+```
+
+Returns the device information cached from the last successful handshake
+(local read, no network request):
+
+```cpp
+struct DeviceInfo {
+  DeviceType device_type = DeviceType::UNKNOWN;
+  std::string sn;
+};
+```
+
+The SDK converts the protocol model returned by the handshake to a `DeviceType`
+enum that uses M1/L2 product names. Before connecting, after
+disconnecting, when an older robot does not report its model, or when the model
+is unrecognized, `device_type` is `DeviceType::UNKNOWN`; `sn` is empty. See the
+complete enum in the [Data Types Reference](sdk_type_en.md#devicetype).
+
+```cpp
+auto ec = client.Connect("192.168.234.1", "8082", true);
+if (!ec) {
+    const auto info = client.GetDeviceInfo();
+    std::cout << "device_type=" << DeviceTypeName(info.device_type)
+              << ", sn=" << info.sn << std::endl;
+}
+```
+
+---
+
+## Complete Example
+
+```cpp
+#include <iostream>
 #include "robot_sdk/sdk_client.hpp"
 using namespace robot_sdk;
 
@@ -1368,24 +672,28 @@ int main() {
         if (ec) std::cerr << "SDK Error: " << ec.message() << std::endl;
     });
 
-    auto ec = client.Connect("192.168.234.1", "8082", true);
+    auto ec = client.Connect("192.168.234.1", "8082", true);  // Synchronous connect
     if (ec) {
         std::cerr << "Connect failed: " << ec.message() << std::endl;
         return -1;
     }
 
-    client.StandUp(2000);
-    client.Move(0, 0.5, 0);
+    client.StandUp(2000);          // Sync: wait for the send to complete
+    client.Move(0.0f, 0.5f, 0.0f); // Async: half-speed forward
     client.Disconnect(true);
     return 0;
 }
 ```
 
----
+More examples in the `example/` directory: `control.cpp` (motion), `take_control.cpp` (ownership),
+`led.cpp` (LED effects), `recharge.cpp` (recharge task), etc.
 
-## Related Documentation
+## Related Documents
 
-- [Connection Configuration Documentation](sdk_connection_en.md) - Connection parameters and basic usage
-- [Type Definition Documentation](sdk_type_en.md) - Task states, machine states, and related structures
-- [Callback Reference](sdk_callback_en.md) - Control and data callback descriptions
-- [Recharge and Undock Task Usage Guide](sdk_recharge_task_en.md) - Detailed usage instructions for `StartRechargeTask`, `StopRechargeTask`, `StartUnDockTask`, and `StopUnDockTask`
+- [Callback Reference](sdk_callback_en.md) — Data reports and command ACKs
+- [Data Types Reference](sdk_type_en.md) — Parameter and state struct definitions
+- [Connection Guide](sdk_connection_en.md) — Connection parameters, timeouts, auto-reconnect
+- [Error Code Guide](sdk_error_en.md) — Error code definitions and checks
+- [Control Ownership](sdk_control_ownership_en.md) — SDK vs APP ownership rules
+- [API Capability Matrix](sdk_api_capability_en.md) — Per-model API support
+- [Recharge & Undock Task Guide](sdk_recharge_task_en.md) — Detailed task API usage

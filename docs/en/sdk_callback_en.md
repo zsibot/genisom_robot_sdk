@@ -1,26 +1,65 @@
-# SDK Callback Interface Documentation
+# Robot SDK — Callback Reference
 
-This document defines the data callback and control command callback interfaces in the Robot SDK.  
-Namespace: `robot_sdk`
+## Overview
+
+Communication between the SDK and the robot is bidirectional: your code calls APIs to **send commands**,
+and the robot **pushes results and data** back through callbacks. The SDK provides two callback interfaces
+with distinct responsibilities:
+
+| Interface | Responsibility | Typical Content |
+|:--|:--|:--|
+| `IDataCallback` | Receives data **actively reported** by the robot | Sensor data, robot state, faults, ownership events, task state |
+| `IControlCallback` | Receives **acknowledgments (ACKs)** of control commands | Confirmation that "the robot received your command", plus business results carried by some ACKs |
+
+Both are abstract base classes with default empty implementations — override only the callbacks you care about,
+then register them via `SDKClient::SetDataCallback()` / `SDKClient::SetControlCallback()`
+(passed as `std::shared_ptr`; the SDK holds the reference internally).
+
+## Two Callback Semantics: Notifications vs. ACKs
+
+The key to understanding callbacks is distinguishing two kinds of messages:
+
+- **Notifications (IDataCallback)**: pushed by the robot on its own initiative, regardless of whether
+  you sent any command. For example, `OnRobotStateData()` keeps arriving at 1 Hz.
+- **Acknowledgments (IControlCallback)**: the robot's receipt for a specific control command,
+  meaning "command received". For example, `OnStandUp()` arrives after you call `StandUp()`.
+
+> **Important:** most ACKs only mean the robot **received** the command — not that the action **finished**.
+> When `OnStandUp()` arrives, the robot may still be in the process of standing up.
+> To know whether an action completed, watch `RobotState::motion_status`;
+> for task completion, watch `OnTaskStateData()`.
+>
+> A few ACKs carry real business results, such as `OnTakeControlAck()` (ownership request result)
+> and `OnGetPeriphPower()` (the queried power state).
+
+## Threading Model and Constraints (Must Read)
+
+**All callbacks run on the SDK's internal I/O thread.** Please follow these rules:
+
+1. **Keep callbacks lightweight**: only do quick work such as copying data or setting flags.
+   For time-consuming work (database writes, file I/O, heavy computation, network requests),
+   copy the data and hand it off to your own thread or thread pool.
+2. **Never call blocking (synchronous) SDK APIs from within a callback**
+   (forms with `timeout_ms > 0`, `Connect(..., true)`, `Disconnect(true)`):
+   a synchronous call needs to wait for subsequent events on the I/O thread,
+   but the I/O thread is busy running your callback, so the call cannot complete and waits until timeout.
+   If you must trigger SDK operations from a callback, post them to another thread or use the async form.
+3. **Beware of data races**: the callback thread runs concurrently with your main thread;
+   protect shared data with locks or use atomics.
+4. **Do not throw exceptions** out of a callback; uncaught exceptions disrupt the SDK's internal loop.
+
+```cpp
+// Recommended pattern: copy data / set flags in the callback, do business logic in your own thread
+void OnImuData(const ImuData& data) override {
+  std::lock_guard<std::mutex> lock(mtx_);
+  latest_imu_ = data;          // quick copy
+  imu_updated_ = true;         // set flag
+}
+```
 
 ---
 
-## Interface Overview
-
-- [`IDataCallback`](#idatacallback): Data reporting callback interface  
-- [`IControlCallback`](#icontrolcallback): Control command callback interface (non-blocking mode)
-
----
-
-## IDataCallback
-
-Users can implement this interface as needed to receive data from the robot system.
-
-> ⚠️ Callback functions must be **lightweight** and cannot perform time-consuming operations.  
-> Inside the callback, only fast operations such as data copying and validation are recommended.  
-> If time-consuming tasks are required, such as database writes, file I/O, complex calculations, or network transmission, please **copy the data to an independent thread or thread pool** for processing.
-
-### Definition
+## IDataCallback — Data Report Callbacks
 
 ```cpp
 class ROBOT_EXPORT_API IDataCallback {
@@ -35,63 +74,41 @@ class ROBOT_EXPORT_API IDataCallback {
   virtual void OnControlLost(const ControlLostInfo& info) {}
   virtual void OnControlAvailable(const ControlAvailableInfo& info) {}
   virtual void OnTaskStateData(const TaskStateInfo& info) {}
-
   virtual ~IDataCallback() = default;
 };
 ```
 
----
+### Sensor Data (must be enabled first)
 
-### Callback List
+| Callback | Description | Report Rate | Enable API |
+|:--|:--|:--|:--|
+| `OnImuData(const ImuData&)` | IMU data (accelerometer, gyroscope, quaternion) | Configured [0, 100] Hz | `SetImuConfig(freq)` |
+| `OnLuxData(const LuxData&)` | Illuminance | Fixed 1 Hz | `SetLuxConfig(true)` |
+| `OnMcData(const MotionData&)` | Motion data (odometry) | Fixed 50 Hz | `SetMcConfig(true)` |
+| `OnSpeedData(const SpeedData&)` | Velocity data | Configured [1, 50] Hz | `SetSpeedReportConfig(true, freq)` |
+| `OnJointStateData(const JointStateData&)` | Joint position/velocity/torque | Fixed rate | `SetJointStateConfig(true)` |
 
-#### 🧭 `OnImuData`
-- **Description**: IMU data callback, reported at the configured frequency after enabling IMU reporting.  
-- **Parameter**: `const ImuData& data` — IMU data structure  
-- **Call Frequency**: Configurable  
+### State & Events (actively reported, no configuration needed)
 
-#### 💡 `OnLuxData`
-- **Description**: Illuminance data callback, reported at a fixed frequency of 1 Hz after configuration.  
-- **Parameter**: `const LuxData& data` — illuminance data structure  
+| Callback | Description | Trigger |
+|:--|:--|:--|
+| `OnRobotStateData(const RobotState&)` | Comprehensive robot state snapshot | Continuously at 1 Hz |
+| `OnFaultData(const FaultDatas&)` | Fault information (may contain multiple faults) | When a fault occurs |
+| `OnTaskStateData(const TaskStateInfo&)` | Task state (recharge, undock, etc.) | When task state changes |
 
-#### 🤖 `OnMcData`
-- **Description**: Motion control data callback, reported at a fixed frequency of 50 Hz after configuration.  
-- **Parameter**: `const MotionData& data` — motion data structure  
+### Control Ownership Events
 
-#### 🚀 `OnSpeedData`
-- **Description**: Robot speed data callback.  
-- **Parameter**: `const SpeedData& data` — speed data structure  
+| Callback | Description | Trigger |
+|:--|:--|:--|
+| `OnControlLost(const ControlLostInfo&)` | Ownership was taken by another client (e.g. the APP) | When ownership is taken away |
+| `OnControlAvailable(const ControlAvailableInfo&)` | Ownership became requestable | Usually when the controller disconnects |
 
-#### 🦾 `OnJointStateData`
-- **Description**: Joint state data callback, reported at the configured frequency after enabling it.  
-- **Parameter**: `const JointStateData& data` — joint state data structure  
-
-#### 🤖 `OnRobotStateData`
-- **Description**: Robot state data callback, actively reported at 1 Hz.  
-- **Parameter**: `const RobotState& data` — robot state structure  
-
-#### ⚠️ `OnFaultData`
-- **Description**: Fault information callback, actively reported when a fault occurs.  
-- **Parameter**: `const FaultDatas& data` — collection of fault data  
-
-#### 🔓 `OnControlLost`
-- **Description**: Callback triggered when control ownership is lost.  
-- **Parameter**: `const ControlLostInfo& info` — control ownership loss information  
-
-#### 🔒 `OnControlAvailable`
-- **Description**: Callback triggered when control ownership becomes available.  
-- **Parameter**: `const ControlAvailableInfo& info` — control availability information  
-
-#### 📋 `OnTaskStateData`
-- **Description**: Task state callback, reported when the task state changes. It is mainly used for recharge, undock, and similar task workflows.  
-- **Parameter**: `const TaskStateInfo& info` — task state information  
+> Handling ownership events correctly is the key to state-machine programming.
+> See [Control Ownership](sdk_control_ownership_en.md).
 
 ---
 
-## IControlCallback
-
-This interface is used to receive acknowledgments that the robot has received control commands in non-blocking mode.
-
-### Definition
+## IControlCallback — Command Acknowledgments
 
 ```cpp
 class ROBOT_EXPORT_API IControlCallback {
@@ -125,7 +142,6 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnTakeControlAck(const TakeControlAck& ack) {}
   virtual void OnReleaseControlAck(const ReleaseControlAck& ack) {}
   virtual void OnUpdateCameraBitrateAck(const CameraBitrateAck& ack) {}
-  virtual void OnTakePhotoAck(const TakePhotoAck& ack) {}
   virtual void OnSwitchRemote() {}
   virtual void OnSwitchIdle() {}
   virtual void OnStartRechargeTask() {}
@@ -137,88 +153,161 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnSetLedAutoMode(const LedAutoModeAck& ack) {}
   virtual void OnGetLedAutoMode(const LedAutoModeAck& ack) {}
   virtual void OnSetLedCommand(const LedCommandAck& ack) {}
-
   virtual ~IControlCallback() = default;
 };
 ```
 
----
+### Motion & Posture Command ACKs
 
-### Callback List
+| Callback | Corresponding API | Parameter |
+|:--|:--|:--|
+| `OnSoftEmergencyStop(bool on)` | `SoftEmergencyStop(on)` | `true` = e-stop triggered; `false` = released |
+| `OnStandUp()` | `StandUp()` | — |
+| `OnBalanceStandUp()` | `BalanceStandUp()` | — |
+| `OnLieDown()` | `LieDown()` | — |
+| `OnStair()` | `Stair()` | — |
+| `OnCrawl()` | `Crawl()` | — |
+| `OnCrawlWalk()` | `CrawlWalk()` | — |
+| `OnClimb()` | `Climb()` | — |
+| `OnSlim()` | `Slim()` | — |
+| `OnGait()` | `Gait()` | — |
+| `OnDSB()` | `DSB()` | — |
+| `OnPosControl()` | `PosControl()` | — |
+| `OnSkWalk()` | `SkWalk()` | — |
+| `OnSand()` | `Sand()` | — |
+| `OnReverseHeadTail()` | `ReverseHeadTail()` | — |
+| `OnSpeed(int speed_level)` | `SetSpeed(level)` | Applied speed level (1 low / 2 medium / 3 high) |
+| `OnLocked()` | `Locked()` | — |
 
-| Callback Function | Description | Parameter |
-|-----------|------|------|
-| `OnSoftEmergencyStop(bool on)` | Acknowledgment that the soft emergency stop command was received | `on = true`: enable emergency stop; `on = false`: disable emergency stop |
-| `OnStandUp()` | Acknowledgment that the stand up command was received | — |
-| `OnBalanceStandUp()` | Acknowledgment that the balance stand up command was received | — |
-| `OnLieDown()` | Acknowledgment that the lie down command was received | — |
-| `OnStair()` | Acknowledgment that the stair mode command was received | — |
-| `OnCrawl()` | Acknowledgment that the crawl mode command was received | — |
-| `OnCrawlWalk()` | Acknowledgment that the crawl walk mode command was received | — |
-| `OnClimb()` | Acknowledgment that the climb mode command was received | — |
-| `OnSlim()` | Acknowledgment that the slim mode command was received | — |
-| `OnGait()` | Acknowledgment that the gait mode command was received | — |
-| `OnDSB()` | Acknowledgment that the DSB mode command was received | — |
-| `OnPosControl()` | Acknowledgment that the position control mode command was received | — |
-| `OnSkWalk()` | Acknowledgment that the SkWalk mode command was received | — |
-| `OnSand()` | Acknowledgment that the sand posture command was received | — |
-| `OnReverseHeadTail()` | Acknowledgment that the head-tail reverse command was received | — |
-| `OnSpeed(int speed_level)` | Acknowledgment that the speed level switch command was received | Speed level |
-| `OnLocked()` | Acknowledgment that the lock command was received | — |
-| `OnFrontLight(bool on)` | Acknowledgment that the front fill light command was received | `true`: on; `false`: off |
-| `OnBackLight(bool on)` | Acknowledgment that the rear fill light command was received | `true`: on; `false`: off |
-| `OnAutoModeLight(bool on)` | Acknowledgment that the automatic fill light mode command was received | `true`: enable; `false`: disable |
-| `OnObstacleAvoidance(bool on)` | Acknowledgment that the obstacle avoidance command was received | `true`: enable; `false`: disable |
-| `OnLuxConfig(bool on)` | Acknowledgment that the illuminance reporting configuration command was received | `true`: enable; `false`: disable |
-| `OnImuConfig(int freq)` | Acknowledgment that the IMU reporting configuration command was received | Frequency value |
-| `OnMcConfig(bool on)` | Acknowledgment that the motion data reporting configuration command was received | `true`: enable; `false`: disable |
-| `OnSpeedReportConfig(bool on, uint32_t frequency)` | Acknowledgment that the speed reporting configuration command was received | `true`: enable; `false`: disable; `frequency`: report frequency |
-| `OnJointStateConfig(bool on)` | Acknowledgment that the joint state reporting configuration command was received | `true`: enable; `false`: disable |
-| `OnTakeControlAck(const TakeControlAck& ack)` | Acknowledgment for the take-control command | Control acknowledgment information |
-| `OnReleaseControlAck(const ReleaseControlAck& ack)` | Acknowledgment for the release-control command | Control acknowledgment information |
-| `OnUpdateCameraBitrateAck(const CameraBitrateAck& ack)` | Acknowledgment for the camera bitrate update command | Camera bitrate acknowledgment information |
-| `OnTakePhotoAck(const TakePhotoAck& ack)` | Acknowledgment for the take-photo command | Acknowledgment information including task ID, device ID, error code, and failure reason |
-| `OnSwitchRemote()` | Notification that the robot has switched to remote control state | — |
-| `OnSwitchIdle()` | Notification that the robot has switched to idle state | — |
-| `OnStartRechargeTask()` | Notification that the robot has entered recharge mode | — |
-| `OnStopRechargeTask()` | Notification that the robot has exited recharge mode | — |
-| `OnStartUnDockTask()` | Notification that the robot has entered undock mode | — |
-| `OnStopUnDockTask()` | Notification that the robot has exited undock mode | — |
-| `OnSetPeriphPower(const PowerCtrlAck& ack)` | Acknowledgment for the peripheral power setting command | The `ack` contains the power channel and the target switch state |
-| `OnGetPeriphPower(const PowerCtrlAck& ack)` | Acknowledgment for the peripheral power query command | The `ack` contains the current power channel state |
-| `OnSetLedAutoMode(const LedAutoModeAck& ack)` | Acknowledgment for setting LED auto/manual mode | `ack.auto_mode` indicates the current mode |
-| `OnGetLedAutoMode(const LedAutoModeAck& ack)` | Acknowledgment for querying LED auto/manual mode | `ack.auto_mode` indicates the current mode |
-| `OnSetLedCommand(const LedCommandAck& ack)` | Acknowledgment for setting the LED effect | The `ack` contains LED group, effect, color, and period |
+> Continuous-control commands such as `Move()`, `Turn()`, `ControlHead()`, `HighLowStance()`,
+> and `PosMove()` have **no ACK callbacks**; their result is only the `WriteHandler` send result.
+
+### Light & Perception Switch ACKs
+
+| Callback | Corresponding API | Parameter |
+|:--|:--|:--|
+| `OnFrontLight(bool on)` | `FrontLight(on)` | Echoes the requested switch state |
+| `OnBackLight(bool on)` | `BackLight(on)` | Same as above |
+| `OnAutoModeLight(bool on)` | `AutoModeLight(on)` | Same as above |
+| `OnObstacleAvoidance(bool on)` | `ObstacleAvoidance(on)` | Same as above |
+
+### Data Report Configuration ACKs
+
+| Callback | Corresponding API | Parameter |
+|:--|:--|:--|
+| `OnImuConfig(int freq)` | `SetImuConfig(freq)` | Applied report rate |
+| `OnLuxConfig(bool on)` | `SetLuxConfig(on)` | Switch state |
+| `OnMcConfig(bool on)` | `SetMcConfig(on)` | Switch state |
+| `OnSpeedReportConfig(bool on, uint32_t frequency)` | `SetSpeedReportConfig(on, freq)` | Switch state and applied rate |
+| `OnJointStateConfig(bool on)` | `SetJointStateConfig(on)` | Switch state |
+
+### Control Ownership ACKs (carry business results)
+
+| Callback | Corresponding API | Description |
+|:--|:--|:--|
+| `OnTakeControlAck(const TakeControlAck& ack)` | `TakeControl()` | Ownership is acquired only when `ack.error_code == 0`; failure reason in `ack.reason` |
+| `OnReleaseControlAck(const ReleaseControlAck& ack)` | `ReleaseControl()` | Release succeeded only when `ack.error_code == 0` |
+
+### Camera ACKs (carry business results)
+
+| Callback | Corresponding API | Description |
+|:--|:--|:--|
+| `OnUpdateCameraBitrateAck(const CameraBitrateAck& ack)` | `UpdateCameraBitrate(cmd)` | The bitrate actually applied by the device |
+
+### State Switch & Task ACKs
+
+| Callback | Corresponding API | Description |
+|:--|:--|:--|
+| `OnSwitchRemote()` | `SwitchRemoteState()` | The robot received the switch-to-remote instruction |
+| `OnSwitchIdle()` | `SwitchIdleState()` | The robot received the switch-to-idle instruction |
+| `OnStartRechargeTask()` | `StartRechargeTask()` | The robot entered the recharge task |
+| `OnStopRechargeTask()` | `StopRechargeTask()` | The robot exited the recharge task |
+| `OnStartUnDockTask()` | `StartUnDockTask()` | The robot entered the undock task |
+| `OnStopUnDockTask()` | `StopUnDockTask()` | The robot exited the undock task |
+
+### Peripheral Power & LED ACKs (carry business results)
+
+| Callback | Corresponding API | Description |
+|:--|:--|:--|
+| `OnSetPeriphPower(const PowerCtrlAck& ack)` | `SetPeriphPower(cfg)` | Echoes the requested channel and switch state |
+| `OnGetPeriphPower(const PowerCtrlAck& ack)` | `GetPeriphPower(cfg)` | `ack.enable` is the channel's actual current state |
+| `OnSetLedAutoMode(const LedAutoModeAck& ack)` | `SetLedAutoMode(mode)` | The applied mode |
+| `OnGetLedAutoMode(const LedAutoModeAck& ack)` | `GetLedAutoMode()` | The current mode |
+| `OnSetLedCommand(const LedCommandAck& ack)` | `SetLedCommand(cmd)` | Echoes group, effect, color, and period |
 
 ---
 
 ## Implementation Example
 
 ```cpp
-#include "robot_sdk/sdk_callback.hpp"
+#include "robot_sdk/sdk_client.hpp"
+using namespace robot_sdk;
 
-class MyDataCallback : public robot_sdk::IDataCallback {
+class MyDataCallback : public IDataCallback {
  public:
-  void OnImuData(const ImuData& data) override {
-    // Lightweight processing, for example caching
+  void OnRobotStateData(const RobotState& data) override {
+    // Lightweight: copy what you need, update flags
+    last_motion_status_ = data.motion_status;
   }
+
+  void OnFaultData(const FaultDatas& data) override {
+    for (const auto& fault : data) {
+      // Just record it; don't do slow alerting work here
+      fault_queue_.push(fault);
+    }
+  }
+
+  void OnControlLost(const ControlLostInfo&) override {
+    has_control_ = false;   // Stop sending normal control commands immediately
+  }
+
+  void OnControlAvailable(const ControlAvailableInfo&) override {
+    control_available_ = true;  // Let the worker thread call TakeControl()
+  }
+
+ private:
+  MotionStatus last_motion_status_ = MotionStatus::MOTION_STATUS_UNKNOWN;
+  std::atomic<bool> has_control_{false};
+  std::atomic<bool> control_available_{false};
 };
 
-class MyControlCallback : public robot_sdk::IControlCallback {
+class MyControlCallback : public IControlCallback {
  public:
+  void OnTakeControlAck(const TakeControlAck& ack) override {
+    if (ack.error_code == 0) {
+      has_control_ = true;    // Ownership is real only when the ACK says success
+    } else {
+      // ack.reason explains why it failed
+    }
+  }
+
   void OnStandUp() override {
-    // Handle stand up command acknowledgment
+    // The robot received the stand-up command; completion is tracked via
+    // RobotState::motion_status
   }
 
-  void OnSand() override {
-    // Handle sand posture command acknowledgment
-  }
+ private:
+  std::atomic<bool> has_control_{false};
 };
-```
 
----
+// Registration
+SDKClient client;
+client.SetDataCallback(std::make_shared<MyDataCallback>());
+client.SetControlCallback(std::make_shared<MyControlCallback>());
+```
 
 ## Notes
 
-- Do not perform time-consuming operations inside callbacks.
-- If longer processing is required, copy the data and hand it off to an independent thread.
+- Callbacks run on the SDK I/O thread: **be lightweight, never block, never call synchronous SDK APIs,
+  mind thread safety, and don't throw**.
+- An ACK does not mean the action completed: check `RobotState` for motion states and
+  `OnTaskStateData()` for task results.
+- ACKs carrying `error_code` (ownership, peripheral power, etc.) are the final business results.
+- Callback objects are registered via `shared_ptr`; keep them alive while the SDK uses them —
+  the SDK holds the reference until replaced or destroyed.
+
+## Related Documents
+
+- [SDKClient API Reference](sdk_client_api_en.md) — Client interface details
+- [Data Types Reference](sdk_type_en.md) — Struct definitions used by callback parameters
+- [Control Ownership](sdk_control_ownership_en.md) — The ownership event handling pattern

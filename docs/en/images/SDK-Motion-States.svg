@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="860" viewBox="0 0 1500 860" role="img" aria-labelledby="title desc">
+  <title id="title">SDK motion posture overview</title>
+  <desc id="desc">Fourteen postures grouped into movable, in-place, position-control, and special groups, with capabilities and switching rules.</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#0f172a" flood-opacity=".09"/>
+    </filter>
+    <marker id="arrow-v" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <style>
+      text { font-family: Inter, Arial, sans-serif; fill: #0f172a; }
+      .title { font-size: 36px; font-weight: 750; }
+      .subtitle { font-size: 18px; fill: #475569; }
+      .card-title { font-size: 22px; font-weight: 750; }
+      .card-sub { font-size: 15px; fill: #64748b; }
+      .chip { font-size: 15px; font-weight: 650; text-anchor: middle; dominant-baseline: middle; }
+      .chip-sm { font-size: 13px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }
+      .note { font-size: 14px; fill: #64748b; }
+      .rule { font-size: 15.5px; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect width="1500" height="860" fill="#f8fafc"/>
+  <text x="60" y="58" class="title">SDK Motion Postures at a Glance: Four Groups</text>
+  <text x="60" y="90" class="subtitle">Switch postures with control APIs; confirm the result via RobotState.motion_status (reported at 1 Hz)</text>
+
+  <!-- Movable postures -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="700" height="310" rx="20" fill="#fff" stroke="#86efac" stroke-width="2"/>
+  </g>
+  <circle cx="92" cy="156" r="9" fill="#16a34a"/>
+  <text x="112" y="163" class="card-title">Movable Postures (8)</text>
+  <text x="112" y="188" class="card-sub">Move() works once the posture is active; speed is capped by SetSpeed()</text>
+  <g fill="#f0fdf4" stroke="#86efac">
+    <rect x="88" y="212" width="155" height="44" rx="10"/>
+    <rect x="253" y="212" width="155" height="44" rx="10"/>
+    <rect x="418" y="212" width="155" height="44" rx="10"/>
+    <rect x="583" y="212" width="155" height="44" rx="10"/>
+    <rect x="88" y="272" width="155" height="44" rx="10"/>
+    <rect x="253" y="272" width="155" height="44" rx="10"/>
+    <rect x="418" y="272" width="155" height="44" rx="10"/>
+    <rect x="583" y="272" width="155" height="44" rx="10"/>
+  </g>
+  <text x="165" y="234" class="chip" fill="#15803d">StandUp</text>
+  <text x="330" y="234" class="chip" fill="#15803d">Stair</text>
+  <text x="495" y="234" class="chip" fill="#15803d">CrawlWalk</text>
+  <text x="660" y="234" class="chip" fill="#15803d">Climb</text>
+  <text x="165" y="294" class="chip" fill="#15803d">Gait</text>
+  <text x="330" y="294" class="chip" fill="#15803d">Slim</text>
+  <text x="495" y="294" class="chip" fill="#15803d">DSB</text>
+  <text x="660" y="294" class="chip" fill="#15803d">Sand</text>
+  <text x="88" y="352" class="note">• After standing up, motion_status becomes WALK (ready to move)</text>
+  <text x="88" y="376" class="note">• Climb / Gait / Slim / DSB / Sand work in general mode only</text>
+  <text x="88" y="400" class="note">• Slim / DSB / Sand are unsupported on the L2 series</text>
+
+  <!-- In-place postures -->
+  <g filter="url(#shadow)">
+    <rect x="790" y="120" width="650" height="310" rx="20" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+  </g>
+  <circle cx="822" cy="156" r="9" fill="#2563eb"/>
+  <text x="842" y="163" class="card-title">In-place Postures (3)</text>
+  <text x="842" y="188" class="card-sub">Stationary; BalanceStandUp offers three exclusive adjustments</text>
+  <g fill="#eff6ff" stroke="#93c5fd">
+    <rect x="818" y="212" width="230" height="44" rx="10"/>
+    <rect x="1064" y="212" width="160" height="44" rx="10"/>
+    <rect x="1240" y="212" width="160" height="44" rx="10"/>
+  </g>
+  <text x="933" y="234" class="chip" fill="#1d4ed8">BalanceStandUp</text>
+  <text x="1144" y="234" class="chip" fill="#1d4ed8">LieDown</text>
+  <text x="1320" y="234" class="chip" fill="#1d4ed8">Crawl</text>
+  <text x="818" y="282" class="note">Exclusive adjustments of BalanceStandUp (in-place mode only):</text>
+  <g fill="#dbeafe" stroke="#93c5fd">
+    <rect x="818" y="300" width="190" height="38" rx="10"/>
+    <rect x="1024" y="300" width="190" height="38" rx="10"/>
+    <rect x="1230" y="300" width="190" height="38" rx="10"/>
+  </g>
+  <text x="913" y="319" class="chip-sm" fill="#1e40af">ControlHead</text>
+  <text x="1119" y="319" class="chip-sm" fill="#1e40af">Turn (body roll)</text>
+  <text x="1325" y="319" class="chip-sm" fill="#1e40af">HighLowStance</text>
+  <text x="818" y="376" class="note">• LieDown / Crawl have no exclusive adjustment commands</text>
+  <text x="818" y="400" class="note">• Move() has no effect in this group</text>
+
+  <!-- Position-control posture -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="460" width="700" height="230" rx="20" fill="#fff" stroke="#c4b5fd" stroke-width="2"/>
+  </g>
+  <circle cx="92" cy="496" r="9" fill="#7c3aed"/>
+  <text x="112" y="503" class="card-title">Position-Control Posture</text>
+  <text x="112" y="528" class="card-sub">Set the target body pose directly (general mode only)</text>
+  <g fill="#f5f3ff" stroke="#c4b5fd">
+    <rect x="88" y="552" width="180" height="48" rx="10"/>
+    <rect x="328" y="552" width="404" height="48" rx="10"/>
+  </g>
+  <text x="178" y="576" class="chip" fill="#6d28d9">PosControl()</text>
+  <text x="530" y="576" class="chip" fill="#6d28d9" font-size="13.5">PosMove(): x / y / z (m) + roll / pitch / yaw (rad)</text>
+  <line x1="268" y1="576" x2="322" y2="576" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow-v)"/>
+  <text x="88" y="640" class="note">• After entering the posture, adjust position and orientation with PosMove()</text>
+  <text x="88" y="664" class="note">• Reported as MOTION_STATUS_POS_CONTROL</text>
+
+  <!-- Special postures -->
+  <g filter="url(#shadow)">
+    <rect x="790" y="460" width="650" height="230" rx="20" fill="#fff" stroke="#fdba74" stroke-width="2"/>
+  </g>
+  <circle cx="822" cy="496" r="9" fill="#ea580c"/>
+  <text x="842" y="503" class="card-title">Special Postures (2)</text>
+  <text x="842" y="528" class="card-sub">Different switching rules — pay attention</text>
+  <g fill="#fff7ed" stroke="#fdba74">
+    <rect x="818" y="552" width="160" height="44" rx="10"/>
+    <rect x="818" y="616" width="160" height="44" rx="10"/>
+  </g>
+  <text x="898" y="574" class="chip" fill="#c2410c">Locked</text>
+  <text x="898" y="638" class="chip" fill="#c2410c">SkWalk</text>
+  <text x="998" y="568" class="note">Joints hold their positions; switching to any</text>
+  <text x="998" y="590" class="note">other posture unlocks automatically</text>
+  <text x="998" y="630" class="note">Supports Move(); can only switch back to</text>
+  <text x="998" y="652" class="note">StandUp; unsupported on the L2 series</text>
+
+  <!-- Bottom rules -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="720" width="1380" height="110" rx="18" fill="#fff" stroke="#e2e8f0"/>
+  </g>
+  <text x="92" y="756" class="rule" font-weight="700">Switching rules:</text>
+  <text x="225" y="756" class="rule">① Any posture can switch directly to any other — except SkWalk, which can only return to StandUp</text>
+  <text x="225" y="784" class="rule">② A command ACK only means "the robot received it"; confirm posture changes via RobotState.motion_status</text>
+  <text x="225" y="812" class="rule">③ ReverseHeadTail is unsupported on the L2 series and on M1-Air / M1F-Air</text>
+</svg>

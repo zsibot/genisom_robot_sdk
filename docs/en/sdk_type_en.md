@@ -1,38 +1,114 @@
-# Robot SDK — Data Type Documentation
+# Robot SDK — Data Types Reference
 
 ## Overview
 
-This document describes the data types, enumerations, and structure definitions used in Robot SDK.
+This document describes all data types exposed by the Robot SDK public headers: enums, structs, and their fields.
+They are defined in `robot_sdk/sdk_type.hpp` under the `robot_sdk` namespace.
+
+The types fall into three practical categories:
+
+| Category | Types | Purpose |
+|:--|:--|:--|
+| **Command parameters (input)** | `CameraBitrateCmd`, `LedCommand`, `PowerCtrlCfg`, `PosControlCmd` | Filled in by the caller to tell the robot what to do |
+| **Acknowledgments (output)** | `TakeControlAck`, `PowerCtrlAck`, `LedAutoModeAck`, etc. | Returned via `IControlCallback`, reporting how the command went |
+| **Reported data (push)** | `RobotState`, `ImuData`, `FaultData`, `TaskStateInfo`, etc. | Pushed continuously via `IDataCallback`, describing the robot's current state |
+
+## Quick Navigation
+
+| Group | Types |
+|:--|:--|
+| [Basic Types](#basic-types) | `TransportProtocol`, `DeviceType`, `DeviceInfo` |
+| [Fault Types](#fault-types) | `FaultCode`, `FaultLevel`, `FaultData` |
+| [Sensor & Reported Data](#sensor--reported-data) | `ImuData`, `LuxData`, `MotionData`, `SpeedData`, `JointStateData` |
+| [Robot State](#robot-state) | `RobotState`, `Speed`, `BatteryData`, and related enums |
+| [Control Ownership](#control-ownership) | `CtrlSource`, `TakeControlAck`, `ReleaseControlAck`, etc. |
+| [Camera](#camera) | `CameraBitrateCmd`, etc. |
+| [Tasks](#tasks) | `TaskType`, `TaskStatus`, `TaskStateInfo` |
+| [Peripheral Power](#peripheral-power) | `PeripheralPower`, `PowerCtrlCfg`, `PowerCtrlAck` |
+| [LED](#led) | `LedId`, `LedEffect`, `LedColor`, `LedCommand`, etc. |
+| [Position Control](#position-control) | `PosControlCmd` |
 
 ---
 
-## Namespace
-
-```cpp
-namespace robot_sdk
-```
-
----
-
-## Transport Protocol
+## Basic Types
 
 ### TransportProtocol
 
 ```cpp
-enum class TransportProtocol
+enum class TransportProtocol { WebSocket, Udp };
 ```
 
-**Description:**  
-Transport protocol types supported by the SDK.
+Transport protocol used by the SDK, selected in the `SDKClient` constructor.
 
-| Enum Value | Description |
-|:--|:--|
-| `WebSocket` | WebSocket protocol (default recommended) |
-| `Udp` | UDP protocol |
+| Value | Description | Default Port |
+|:--|:--|:--|
+| `Udp` | UDP protocol (default) | 8082 |
+| `WebSocket` | WebSocket protocol | 8081 |
 
 ---
 
-## Fault-Related
+### DeviceType
+
+```cpp
+enum class DeviceType : uint8_t {
+  UNKNOWN = 0,
+  M1,
+  M1F,
+  M1_PRO,
+  M1F_PRO,
+  M1_ULTRA,
+  M1F_ULTRA,
+  M1_AIR,
+  M1F_AIR,
+  L2,
+  L2_ULTRA,
+  L2F,
+  L2F_ULTRA,
+};
+```
+
+Robot-model enum. 
+
+| Value | Model | Value | Model |
+|:--|:--|:--|:--|
+| `M1` | Medium dog, wheeled-foot | `M1_AIR` | Medium dog, wheeled-foot Air |
+| `M1F` | Medium dog, point-foot | `M1F_AIR` | Medium dog, point-foot Air |
+| `M1_PRO` | Medium dog, wheeled-foot LiDAR | `L2` | Small dog, wheeled sport |
+| `M1F_PRO` | Medium dog, point-foot LiDAR | `L2_ULTRA` | Small dog, wheeled surround-view |
+| `M1_ULTRA` | Medium dog, wheeled-foot surround-view | `L2F` | Small dog, point-foot sport |
+| `M1F_ULTRA` | Medium dog, point-foot surround-view | `L2F_ULTRA` | Small dog, point-foot surround-view |
+| `UNKNOWN` | Unrecognized, disconnected, or not reported by an older robot | | |
+
+Use `DeviceTypeName()` to obtain a display name for logs, such as `M1-Pro` or
+`L2F-Ultra`.
+
+### DeviceInfo
+
+```cpp
+struct DeviceInfo {
+  DeviceType device_type = DeviceType::UNKNOWN;
+  std::string sn;
+};
+```
+
+Device information returned by the handshake response, obtained via
+`SDKClient::GetDeviceInfo()` (read from a local cache; no network request is
+made). Before connecting or after disconnecting, `device_type` is
+`DeviceType::UNKNOWN` and `sn` is empty.
+
+```cpp
+const auto info = client.GetDeviceInfo();
+if (info.device_type == DeviceType::L2) {
+    // Small-dog L2 wheeled sport model
+}
+std::cout << DeviceTypeName(info.device_type) << std::endl;
+```
+
+> Per-model API support is listed in the [API capability matrix](sdk_api_capability_en.md).
+
+---
+
+## Fault Types
 
 ### FaultCode
 
@@ -40,30 +116,29 @@ Transport protocol types supported by the SDK.
 enum class FaultCode
 ```
 
-**Description:**  
-Possible fault codes in the robot system.
+Fault codes that may occur in the robot system. Values start at `10` (except `Unknown`) and increase consecutively.
 
-| Enum Value | Description |
-|:--|:--|
-| `Unknown` | Unknown exception |
-| `ActuatorDisabled` | Actuator disabled |
-| `ActuatorEncoderError` | Actuator encoder error |
-| `ActuatorOffline` | Actuator offline |
-| `ActuatorOverVoltage` | Actuator overvoltage |
-| `ActuatorOverheat` | Actuator overheating |
-| `ActuatorTempWarn` | Actuator overtemperature warning |
-| `ActuatorTimeout` | Actuator control timeout |
-| `ActuatorUndervolt` | Actuator undervoltage |
-| `PowerControlOverTemp` | Single battery overtemperature warning |
-| `PowerControlPowerEmpty` | Single battery below 10% |
-| `PowerControlPowerLow` | Single battery below 20% and above 10% |
-| `PowerControlOffline` | Power control board MCU connection failed |
-| `CANBroken` | CAN communication error |
-| `RobotRemoteKeepAliveFailure` | Remote controller disconnected |
-| `SystemClockSanityError` | System time jump detected |
-| `SystemRobotStatusError` | Robot status abnormal |
-| `IMUConnectError` | IMU connection error |
-| `IMUDataNotUpdated` | IMU data not updating |
+| Value | Integer | Description |
+|:--|:--:|:--|
+| `Unknown` | 0 | Unknown fault |
+| `ActuatorDisabled` | 10 | Actuator disabled |
+| `ActuatorEncoderError` | 11 | Actuator encoder error |
+| `ActuatorOffline` | 12 | Actuator offline |
+| `ActuatorOverVoltage` | 13 | Actuator overvoltage |
+| `ActuatorOverheat` | 14 | Actuator overheating |
+| `ActuatorTempWarn` | 15 | Actuator temperature warning |
+| `ActuatorTimeout` | 16 | Actuator control timeout |
+| `ActuatorUndervolt` | 17 | Actuator undervoltage |
+| `PowerControlOverTemp` | 18 | Battery overheat warning |
+| `PowerControlPowerEmpty` | 19 | Battery below 10% |
+| `PowerControlPowerLow` | 20 | Battery below 20% (above 10%) |
+| `PowerControlOffline` | 21 | Power control board MCU connection failed |
+| `CANBroken` | 22 | CAN communication error |
+| `RobotRemoteKeepAliveFailure` | 23 | Remote control disconnected |
+| `SystemClockSanityError` | 24 | System time jump detected |
+| `SystemRobotStatusError` | 25 | Robot status abnormal |
+| `IMUConnectError` | 26 | IMU connection error |
+| `IMUDataNotUpdated` | 27 | IMU data not updating |
 
 ---
 
@@ -73,73 +148,167 @@ Possible fault codes in the robot system.
 enum class FaultLevel
 ```
 
-**Description:**  
-Fault severity definition.
+Fault severity, from most to least severe: `FatalError` > `Error` > `Warn`.
 
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
+| Value | Integer | Description |
+|:--|:--:|:--|
 | `Unknown` | 0 | Unknown |
-| `FatalError` | 1 | Fatal error |
-| `Error` | 2 | General error |
-| `Warn` | 3 | Warning |
+| `FatalError` | 1 | Fatal; the robot cannot keep working |
+| `Error` | 2 | Error; some functions are affected |
+| `Warn` | 3 | Warning; attention needed but not blocking |
 
 ---
-
-## IMU Data
-
-### ImuData
-
-```cpp
-struct ImuData
-```
-
-**Description:**  
-IMU (Inertial Measurement Unit) data structure.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `acc_x`, `acc_y`, `acc_z` | `float` | Accelerometer three-axis data (m/s²) |
-| `gyro_x`, `gyro_y`, `gyro_z` | `float` | Gyroscope three-axis data (rad/s) |
-| `quat_x`, `quat_y`, `quat_z`, `quat_w` | `float` | Quaternion |
-
----
-
-## Fault Data
 
 ### FaultData
 
 ```cpp
-struct FaultData
+struct FaultData {
+  FaultCode code;        // Fault code
+  FaultLevel level;      // Fault level
+  std::string message;   // Fault description text
+};
+using FaultDatas = std::vector<FaultData>;
 ```
 
-**Description:**  
-Fault information structure.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `code` | `FaultCode` | Fault code |
-| `level` | `FaultLevel` | Fault level |
-| `message` | `std::string` | Fault message text |
+A single fault record. `OnFaultData()` may carry multiple faults at once (`FaultDatas`)
+and is reported only when a fault occurs.
 
 ---
 
-## Power-Related
+## Sensor & Reported Data
 
-### PowerSupplyStatus
+The following streams must be enabled through their configuration APIs first
+(except `RobotState` and `FaultData`), then the robot pushes them at a fixed frequency
+via `IDataCallback`.
+
+### ImuData
 
 ```cpp
-enum class PowerSupplyStatus
+struct ImuData {
+  float acc_x, acc_y, acc_z;             // Accelerometer axes (m/s²)
+  float gyro_x, gyro_y, gyro_z;          // Gyroscope axes (rad/s)
+  float quat_x, quat_y, quat_z, quat_w;  // Attitude quaternion (x, y, z, w)
+};
 ```
 
-**Description:**  
-Battery power supply status enumeration.
+IMU (Inertial Measurement Unit) data. Configure the report rate with `SetImuConfig(freq)`
+([0, 100] Hz, 0 disables); received via `OnImuData()`.
 
-| Enum Value | Integer Value | Description |
+---
+
+### LuxData
+
+```cpp
+struct LuxData {
+  float lux;  // Illuminance (lux)
+};
+```
+
+Illuminance data. Enabled with `SetLuxConfig(true)`, reported at a fixed **1 Hz** via `OnLuxData()`.
+
+---
+
+### MotionData
+
+```cpp
+struct MotionData {
+  float quat[4];         // Attitude quaternion [w, x, y, z]
+  float v_world[3];      // Velocity in world frame [x, y, z] (m/s)
+  float position[3];     // Position in world frame [x, y, z] (m)
+  float omega_world[3];  // Angular velocity in world frame [x, y, z] (rad/s)
+  float v_body[3];       // Velocity in body frame [x, y, z] (m/s)
+  float omega_body[3];   // Angular velocity in body frame [x, y, z] (rad/s)
+  uint64_t time_stamp;   // Timestamp (ns)
+};
+```
+
+Detailed motion-control data (odometry). Enabled with `SetMcConfig(true)`, reported at a fixed
+**50 Hz** via `OnMcData()`. Suitable for state estimation, trajectory logging, and other
+high-frequency processing.
+
+---
+
+### SpeedData
+
+```cpp
+struct SpeedData {
+  float x;    // Forward/backward velocity (m/s)
+  float y;    // Left/right lateral velocity (m/s)
+  float yaw;  // Rotation velocity (rad/s)
+};
+```
+
+Velocity data. Configure the report rate with `SetSpeedReportConfig(true, frequency)`
+([1, 50] Hz); received via `OnSpeedData()`.
+
+---
+
+### JointStateData
+
+```cpp
+struct JointStateData {
+  std::vector<std::string> names;       // Joint names
+  std::vector<double> positions;        // Joint positions (rad)
+  std::vector<double> velocities;       // Joint velocities (rad/s)
+  std::vector<double> efforts;          // Joint torques (N·m)
+};
+```
+
+Joint state data. Enabled with `SetJointStateConfig(true)`, reported at a fixed rate via
+`OnJointStateData()`. The four arrays correspond element-by-element in `names` order.
+See [Joint Naming Rules](#joint-naming-rules).
+
+---
+
+## Robot State
+
+### RobotState
+
+```cpp
+struct RobotState
+```
+
+A comprehensive snapshot of the robot state, actively reported at **1 Hz** after connecting
+(no configuration needed) and received via `OnRobotStateData()`. This is the main entry point
+for "what is the robot doing right now".
+
+| Member | Type | Description |
 |:--|:--|:--|
-| `UNKNOWN` | 0 | Power supply status unknown |
-| `CHARGING` | 1 | Charging |
-| `DISCHARGING` | 2 | Discharging |
-| `FULL` | 4 | Fully charged |
+| `head_angle` | `double` | Head angle (rad) |
+| `front_fill_light` | `FillLightStatus` | Front fill light status |
+| `back_fill_light` | `FillLightStatus` | Back fill light status |
+| `auto_mode_light` | `bool` | Auto light mode enabled |
+| `obstacle_avoidance` | `bool` | Obstacle avoidance enabled |
+| `charging_pile_connected` | `bool` | Charging pile connected |
+| `speed_level` | `SpeedLevel` | Current speed level |
+| `software_emergency_status` | `EmergencyStatus` | Software e-stop status |
+| `hardware_emergency_status` | `EmergencyStatus` | Hardware e-stop status |
+| `head_direction` | `HeadDirection` | Current head/tail direction |
+| `motion_status` | `MotionStatus` | Current motion (posture) state |
+| `machine_status` | `MachineStatus` | Machine (task) state |
+| `battery` | `BatteryData` | Battery data |
+| `speed` | `Speed` | Current velocity |
+| `mile_data` | `float` | Cumulative mileage (m) |
+| `joint_temps` | `std::unordered_map<std::string, double>` | Joint temperatures (name → °C) |
+| `control_source` | `CtrlSource` | Current control source |
+
+> `motion_status` vs `machine_status`: the former describes the **body posture**
+> (standing, lying, crawling...), the latter describes **what business the robot is running**
+> (idle, remote control, recharging, navigating...). They are independent.
+
+---
+
+### Speed
+
+```cpp
+struct Speed {
+  double line;         // Forward/backward velocity (m/s)
+  double translation;  // Left/right lateral velocity (m/s)
+  double angle;        // Rotation angular velocity (rad/s)
+};
+```
+
+The type of `RobotState::speed`: the robot's current actual velocity.
 
 ---
 
@@ -149,494 +318,226 @@ Battery power supply status enumeration.
 struct BatteryData
 ```
 
-**Description:**  
-Dual-battery data structure.
+Dual-battery information. Members ending in `1` / `2` correspond to battery 1 and battery 2.
 
 | Member | Type | Description |
 |:--|:--|:--|
-| `power1` | `float` | Battery 1 charge percentage (0-100) |
-| `power2` | `float` | Battery 2 charge percentage (0-100) |
-| `present1` | `bool` | Whether battery 1 is present |
-| `present2` | `bool` | Whether battery 2 is present |
-| `voltage1` | `float` | Battery 1 voltage (V) |
-| `voltage2` | `float` | Battery 2 voltage (V) |
-| `temperature1` | `float` | Battery 1 temperature (°C) |
-| `temperature2` | `float` | Battery 2 temperature (°C) |
-| `current1` | `float` | Battery 1 current (A) |
-| `current2` | `float` | Battery 2 current (A) |
-| `power_supply_status1` | `PowerSupplyStatus` | Battery 1 power supply status |
-| `power_supply_status2` | `PowerSupplyStatus` | Battery 2 power supply status |
+| `power1` / `power2` | `float` | Charge level (0–100%) |
+| `present1` / `present2` | `bool` | Battery present |
+| `voltage1` / `voltage2` | `float` | Voltage (V) |
+| `temperature1` / `temperature2` | `float` | Temperature (°C) |
+| `current1` / `current2` | `float` | Current (A) |
+| `power_supply_status1` / `power_supply_status2` | `PowerSupplyStatus` | Power supply status |
+
+#### PowerSupplyStatus
+
+| Value | Integer | Description |
+|:--|:--:|:--|
+| `UNKNOWN` | 0 | Unknown |
+| `CHARGING` | 1 | Charging |
+| `DISCHARGING` | 2 | Discharging |
+| `FULL` | 4 | Fully charged |
 
 ---
 
-## Sensor Data
+### Joint Naming Rules
 
-### LuxData
+`RobotState::joint_temps` and `JointStateData::names` share the same joint naming.
+For wheel-foot models:
 
-```cpp
-struct LuxData
-```
+| Name | Description |
+|:--|:--|
+| `fl1` – `fl4` | Front-left leg, joints 1–4 |
+| `fr1` – `fr4` | Front-right leg, joints 1–4 |
+| `bl1` – `bl4` | Back-left leg, joints 1–4 |
+| `br1` – `br4` | Back-right leg, joints 1–4 |
 
-**Description:**  
-Illuminance sensor data.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `lux` | `float` | Illuminance value |
+Pattern: `f/b` = front/back, `l/r` = left/right; the number is the joint index from hip to foot.
 
 ---
 
-## Robot State Enumerations
+### State Enums
 
-### FillLightStatus
+#### FillLightStatus — Fill Light Status
 
-```cpp
-enum class FillLightStatus
-```
-
-**Description:**  
-Fill light status enumeration.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
-| `FILL_LIGHT_STATUS_UNKNOWN` | 0 | Unknown state |
+| Value | Integer | Description |
+|:--|:--:|:--|
+| `FILL_LIGHT_STATUS_UNKNOWN` | 0 | Unknown |
 | `FILL_LIGHT_STATUS_ON` | 1 | Fill light on |
 | `FILL_LIGHT_STATUS_OFF` | 2 | Fill light off |
 
 ---
 
-### SpeedLevel
+#### SpeedLevel — Speed Level
 
-```cpp
-enum class SpeedLevel
-```
-
-**Description:**  
-Speed level enumeration. The selected level affects the speed limits of the
-`Move` command.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
+| Value | Integer | Description |
+|:--|:--:|:--|
 | `SPEED_LEVEL_UNKNOWN` | 0 | Unknown |
 | `SPEED_LEVEL_SLOW` | 1 | Low speed |
 | `SPEED_LEVEL_MEDIUM` | 2 | Medium speed |
 | `SPEED_LEVEL_HIGH` | 3 | High speed |
 
-**Speed limits:**
+The speed level determines how the normalized `[-1.0, 1.0]` arguments of `Move()` map to
+actual velocity limits:
 
-| Level | vx (forward/backward) | vy (left/right) | vyaw (rotation) |
+| Level | Forward (forward_back) | Lateral (left_right) | Rotation (yaw) |
 |:--|:--|:--|:--|
-| Low | -0.5 to +0.5 m/s | -1.0 to +1.0 m/s | -2.0 to +2.0 rad/s |
-| Medium | 0 m/s | -2.0 to +2.0 m/s | -1.5 to +1.5 rad/s |
-| High | 0 m/s | -3.0 to +3.0 m/s | -1.0 to +1.0 rad/s |
+| Low | ±1.0 m/s | ±0.5 m/s | ±1.5 rad/s |
+| Medium | ±2.0 m/s | ±0.5 m/s while forward speed < 1 m/s, otherwise locked to 0 | ±1.5 rad/s while forward speed < 1 m/s, otherwise ±1.0 rad/s |
+| High | ±3.0 m/s | ±0.5 m/s while forward speed < 1 m/s, otherwise locked to 0 | ±1.5 rad/s while forward speed < 1 m/s; ±1.0 rad/s below 2 m/s; ±0.5 rad/s at or above 2 m/s |
+
+> Rule of thumb: the faster the robot moves forward, the less lateral and rotational motion
+> is allowed — a built-in safety policy of the motion controller.
 
 ---
 
-### EmergencyStatus
+#### EmergencyStatus — E-stop Status
 
-```cpp
-enum class EmergencyStatus
-```
-
-**Description:** Emergency-stop status enumeration.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
+| Value | Integer | Description |
+|:--|:--:|:--|
 | `EMERGENCY_STATUS_UNKNOWN` | 0 | Unknown |
-| `EMERGENCY_STATUS_RECOVER` | 1 | Emergency stop released |
-| `EMERGENCY_STATUS_STOP` | 2 | Emergency stop activated |
+| `EMERGENCY_STATUS_RECOVER` | 1 | E-stop released |
+| `EMERGENCY_STATUS_STOP` | 2 | E-stop triggered |
+
+`RobotState` carries one of these for the software e-stop and one for the hardware e-stop.
 
 ---
 
-### HeadDirection
+#### HeadDirection — Head/Tail Direction
 
-```cpp
-enum class HeadDirection
-```
-
-**Description:** Robot head/tail direction enumeration.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
+| Value | Integer | Description |
+|:--|:--:|:--|
 | `HEAD_DIRECTION_UNKNOWN` | 0 | Unknown |
-| `HEAD_DIRECTION_HEAD` | 1 | Head faces forward |
-| `HEAD_DIRECTION_TAIL` | 2 | Tail faces forward |
+| `HEAD_DIRECTION_HEAD` | 1 | The head points forward |
+| `HEAD_DIRECTION_TAIL` | 2 | The tail points forward (after reversing head/tail) |
 
 ---
 
-### MotionStatus
+#### MotionStatus — Motion (Posture) State
 
-```cpp
-enum class MotionStatus
-```
+| Value | Integer | Description | Related API |
+|:--|:--:|:--|:--|
+| `MOTION_STATUS_UNKNOWN` | 0 | Unknown | — |
+| `MOTION_STATUS_STAND_UP` | 1 | Standing up (in progress) | `StandUp()` |
+| `MOTION_STATUS_WALK` | 2 | Walk (ready to move) | `Move()` |
+| `MOTION_STATUS_BALANCE_STAND` | 3 | Balance stand | `BalanceStandUp()` |
+| `MOTION_STATUS_LIE_DOWN` | 4 | Lying down | `LieDown()` |
+| `MOTION_STATUS_CRAWL` | 5 | Crawling | `Crawl()` |
+| `MOTION_STATUS_CRAWL_WALK` | 6 | Crawl walking | `CrawlWalk()` |
+| `MOTION_STATUS_LOCKED` | 7 | Locked | `Locked()` |
+| `MOTION_STATUS_CLIMB` | 8 | Climbing a high platform | `Climb()` |
+| `MOTION_STATUS_STAIR` | 9 | Stair-climbing | `Stair()` |
+| `MOTION_STATUS_SLIM` | 10 | Slim (narrow passage) | `Slim()` |
+| `MOTION_STATUS_GAIT` | 11 | Gait | `Gait()` |
+| `MOTION_STATUS_DSB` | 12 | DSB | `DSB()` |
+| `MOTION_STATUS_POS_CONTROL` | 13 | Position control | `PosControl()` |
+| `MOTION_STATUS_SK_WALK` | 14 | SameKnee walk | `SkWalk()` |
+| `MOTION_STATUS_SAND` | 15 | Sand posture | `Sand()` |
 
-**Description:** Robot motion status enumeration.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
-| `MOTION_STATUS_UNKNOWN` | 0 | Unknown |
-| `MOTION_STATUS_STAND_UP` | 1 | Standing up |
-| `MOTION_STATUS_WALK` | 2 | Walking |
-| `MOTION_STATUS_BALANCE_STAND` | 3 | Balance standing |
-| `MOTION_STATUS_LIE_DOWN` | 4 | Lying down |
-| `MOTION_STATUS_CRAWL` | 5 | Crawling posture |
-| `MOTION_STATUS_CRAWL_WALK` | 6 | Crawl walking |
-| `MOTION_STATUS_LOCKED` | 7 | Locked |
-| `MOTION_STATUS_CLIMB` | 8 | Climbing a high platform |
-| `MOTION_STATUS_STAIR` | 9 | Stair-climbing mode |
-| `MOTION_STATUS_SLIM` | 10 | Narrow-passage mode |
-| `MOTION_STATUS_GAIT` | 11 | Gait mode |
-| `MOTION_STATUS_DSB` | 12 | DSB mode |
-| `MOTION_STATUS_POS_CONTROL` | 13 | Position-control mode |
-| `MOTION_STATUS_SK_WALK` | 14 | Same-knee walking mode |
-| `MOTION_STATUS_SAND` | 15 | Sand posture |
+> Note: after the robot finishes standing up, the reported state is `MOTION_STATUS_WALK`
+> ("standing and ready to walk"), not `MOTION_STATUS_STAND_UP`.
 
 ---
 
-## Control-Related
+#### MachineStatus — Machine (Task) State
 
-### CtrlSource
-
-```cpp
-enum class CtrlSource
-```
-
-**Description:**  
-Robot control source enumeration.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
-| `CTRL_SOURCE_UNKNOWN` | 0 | Unknown |
-| `CTRL_SOURCE_APP` | 1 | App control |
-| `CTRL_SOURCE_SDK` | 2 | SDK control |
-| `CTRL_SOURCE_OTHER` | 3 | Other control source |
-
----
-
-### ControlLostInfo
-
-```cpp
-struct ControlLostInfo
-```
-
-**Description:**  
-Control ownership lost information.
-
----
-
-### ControlAvailableInfo
-
-```cpp
-struct ControlAvailableInfo
-```
-
-**Description:** Control ownership availability information.
-
----
-
-### TakeControlAck
-
-```cpp
-struct TakeControlAck
-```
-
-**Description:**  
-Acknowledgment information for a take-control command.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `error_code` | `uint32_t` | Error code (`0` means success; non-zero means failure) |
-| `reason` | `std::string` | Failure reason description |
-
----
-
-### ReleaseControlAck
-
-```cpp
-struct ReleaseControlAck
-```
-
-**Description:**  
-Acknowledgment information for a release-control command.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `error_code` | `uint32_t` | Error code (`0` means success; non-zero means failure) |
-| `reason` | `std::string` | Failure reason description |
-
----
-
-### CameraBitrateCmd
-
-```cpp
-struct CameraBitrateCmd
-```
-
-**Description:**  
-Camera bitrate configuration parameters. This maps to wire protocol `type=1019`, `data.target=805`, with fields carried under `data.params`.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `camera_name` | `std::string` | Camera name: `"camera_front"` for the front camera or `"camera_back"` for the rear camera |
-| `camera_bps` | `uint32_t` | Camera bitrate in bit/s; valid range: 50,000–100,000,000 |
-
----
-
-### CameraBitrateAck
-
-```cpp
-struct CameraBitrateAck
-```
-
-**Description:** Camera bitrate configuration acknowledgment. This maps to wire protocol `type=1019`, `data.target=805`; `camera_bps` is the actual value returned by the device.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `camera_name` | `std::string` | Camera name: `"camera_front"` for the front camera or `"camera_back"` for the rear camera |
-| `camera_bps` | `uint32_t` | Camera bitrate in bit/s; valid range: 50,000–100,000,000 |
-
----
-
-### PhotoDeviceId
-
-```cpp
-enum class PhotoDeviceId : uint32_t
-```
-
-**Description:**  
-Photo device ID.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
-| `FRONT` | 0 | Front camera |
-| `BACK` | 1 | Rear camera |
-
----
-
-### TakePhotoCmd
-
-```cpp
-struct TakePhotoCmd
-```
-
-**Description:**  
-Take-photo command parameters.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `task_id` | `uint32_t` | Task ID supplied by the caller and used to match the acknowledgment |
-| `device_id` | `uint32_t` | Device ID: `0` for the front camera, `1` for the rear camera |
-
----
-
-### TakePhotoAck
-
-```cpp
-struct TakePhotoAck
-```
-
-**Description:**  
-Take-photo command acknowledgment information.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `task_id` | `uint32_t` | Task ID matching `task_id` in the request |
-| `device_id` | `uint32_t` | Device ID: `0` for the front camera, `1` for the rear camera |
-| `error_code` | `uint32_t` | Error code; `0` means success and non-zero means failure |
-| `reason` | `std::string` | Failure reason description |
-
----
-
-### Speed
-
-```cpp
-struct Speed
-```
-
-**Description:** Current robot speed information.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `line` | `double` | Forward/backward speed (m/s) |
-| `translation` | `double` | Left/right translational speed (m/s) |
-| `angle` | `double` | Turning angular speed (rad/s) |
-
----
-
-### Joint Temperature Reference
-
-```cpp
-std::unordered_map<std::string, double>
-```
-
-**Description:** Map of robot joint names to joint temperatures.
-
-The wheel-leg joint names are listed below.
-
-| Name | Description |
-|:--|:--|
-| `fl1`, `fl2`, `fl3`, `fl4` | Front-left leg joints 1–4 |
-| `fr1`, `fr2`, `fr3`, `fr4` | Front-right leg joints 1–4 |
-| `bl1`, `bl2`, `bl3`, `bl4` | Rear-left leg joints 1–4 |
-| `br1`, `br2`, `br3`, `br4` | Rear-right leg joints 1–4 |
-
----
-
-### RobotState
-
-```cpp
-struct RobotState
-```
-
-**Description:** Robot state information structure.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `head_angle` | `double` | Head angle (rad) |
-| `front_fill_light` | `FillLightStatus` | Front fill light status |
-| `back_fill_light` | `FillLightStatus` | Rear fill light status |
-| `auto_mode_light` | `bool` | Whether automatic lighting mode is enabled |
-| `obstacle_avoidance` | `bool` | Whether obstacle avoidance is enabled |
-| `charging_pile_connected` | `bool` | Whether the charging pile is connected |
-| `speed_level` | `SpeedLevel` | Current speed level |
-| `software_emergency_status` | `EmergencyStatus` | Software emergency-stop status |
-| `hardware_emergency_status` | `EmergencyStatus` | Hardware emergency-stop status |
-| `head_direction` | `HeadDirection` | Current head/tail direction |
-| `motion_status` | `MotionStatus` | Current motion status |
-| `machine_status` | `MachineStatus` | Machine running status |
-| `battery` | `BatteryData` | Battery information |
-| `speed` | `Speed` | Current speed |
-| `mile_data` | `float` | Cumulative mileage data (m) |
-| `joint_temps` | `std::unordered_map<std::string, double>` | Joint temperature map `<joint name, joint temperature>` in °C |
-| `control_source` | `CtrlSource` | Control source |
-
----
-
-### JointStateData
-
-```cpp
-struct JointStateData
-```
-
-**Description:** Joint state data structure.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `names` | `std::vector<std::string>` | Joint names |
-| `positions` | `std::vector<double>` | Joint positions (rad) |
-| `velocities` | `std::vector<double>` | Joint velocities (rad/s) |
-| `efforts` | `std::vector<double>` | Joint efforts (N·m) |
-
----
-
-### PeripheralPower
-
-```cpp
-enum class PeripheralPower
-```
-
-**Description:**  
-Peripheral power channel.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
+| Value | Integer | Description |
+|:--|:--:|:--|
 | `UNKNOWN` | 0 | Unknown |
-| `M1_48V` | 1 | M1 48V peripheral power |
-| `M1_24V` | 2 | M1 24V peripheral power |
-| `M1_12V` | 3 | M1 12V peripheral power |
+| `IDLE` | 1 | Idle |
+| `REMOTE` | 2 | Remote control |
+| `OTA` | 3 | OTA upgrading |
+| `RECHARGE` | 4 | Recharging |
+| `MAPPING` | 5 | Mapping |
+| `NAVIGATION` | 6 | Navigating |
+| `SAFETY` | 7 | Safety protection |
+| `SELFTEST` | 8 | Self-test |
+| `SOFT_SHUTDOWN` | 9 | Soft shutdown |
+| `SILENCE` | 10 | Silence (standby) |
+| `FOLLOW` | 11 | Following |
+| `TRACK` | 12 | Tracking |
+| `UNDOCK` | 13 | Undocking |
+| `DOCK_CALIBRATION` | 14 | Dock calibration |
+| `ESTOP` | 15 | Emergency stop |
+| `FALL` | 16 | Fallen |
+| `LOCAL_REMOTE` | 17 | Local remote control |
+| `LOW_LEVEL` | 18 | Low-level control |
+
+`SwitchRemoteState()` / `SwitchIdleState()` switch between `REMOTE` and `IDLE`.
+`REMOTE` and `LOCAL_REMOTE` are distinct states, reported as 2 and 17,
+respectively.
 
 ---
 
-### PowerCtrlCfg
+#### CtrlSource — Control Source
 
-```cpp
-struct PowerCtrlCfg
-```
+| Value | Integer | Description |
+|:--|:--:|:--|
+| `CTRL_SOURCE_UNKNOWN` | 0 | Unknown |
+| `CTRL_SOURCE_APP` | 1 | Controlled by the APP |
+| `CTRL_SOURCE_SDK` | 2 | Controlled by the SDK |
+| `CTRL_SOURCE_OTHER` | 3 | Controlled by another source |
 
-**Description:**  
-Peripheral power control configuration.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `power` | `PeripheralPower` | Peripheral power channel |
-| `enable` | `bool` | Switch state |
+Can be used to passively confirm who currently owns control. See
+[Control Ownership](sdk_control_ownership_en.md).
 
 ---
 
-### PowerCtrlAck
+## Control Ownership
+
+### ControlLostInfo / ControlAvailableInfo
 
 ```cpp
-struct PowerCtrlAck
+struct ControlLostInfo {};
+struct ControlAvailableInfo {};
 ```
 
-**Description:**  
-Peripheral power control acknowledgment structure.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `power` | `PeripheralPower` | Peripheral power channel |
-| `enable` | `bool` | Switch state |
+Carriers for control-ownership events; currently empty structs — the event itself
+(control lost / control available) is all the information. Received via
+`OnControlLost()` / `OnControlAvailable()` respectively.
 
 ---
 
-## LED
-
-### LedId
+### TakeControlAck / ReleaseControlAck
 
 ```cpp
-enum class LedId
+struct TakeControlAck {
+  uint32_t error_code;  // 0 = success, non-zero = failure
+  std::string reason;   // Failure reason
+};
+struct ReleaseControlAck { /* same fields */ };
 ```
 
-| Enum Value | Description |
-|:--|:--|
-| `ALL` | All LEDs |
-| `FRONT` | Front LEDs |
-| `BACK` | Back LEDs |
-
-### LedEffect
-
-```cpp
-enum class LedEffect
-```
-
-| Enum Value | Protocol Value | Description |
-|:--|:--|:--|
-| `OFF` | `off` | Off |
-| `ON` | `on` | Solid on |
-| `BREATH` | `breath` | Breathing |
-| `BLINK` | `blink` | Blinking |
-| `BLINK_TRANSIENT` | `blink_transient` | Transient blinking |
-
-### LedCommand
-
-```cpp
-struct LedCommand
-```
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `id` | `LedId` | LED group |
-| `effect` | `LedEffect` | LED effect |
-| `color` | `LedColor` | RGBA color |
-| `duration_ms` | `uint32_t` | Effect period / blink interval in milliseconds |
-
-`LedCommandAck` has the same fields as `LedCommand`; `LedAutoModeAck::auto_mode` indicates whether LED auto mode is enabled.
+Acknowledgment of an ownership request / release. The return values of `TakeControl()` /
+`ReleaseControl()` only indicate whether the command was sent — **whether ownership was
+actually acquired / released must be determined by `error_code` in this ACK**. See
+[Control Ownership](sdk_control_ownership_en.md).
 
 ---
 
-## Task-Related
+## Camera
 
-### TaskType
+### CameraBitrateCmd / CameraBitrateAck
 
 ```cpp
-enum class TaskType
+struct CameraBitrateCmd {
+  std::string camera_name;  // "camera_front" / "camera_back"
+  uint32_t camera_bps;      // Bitrate (bps), range 50000–100000000
+};
+struct CameraBitrateAck { /* same fields */ };
 ```
 
-**Description:**  
-Task type enumeration.
+Camera bitrate configuration and its acknowledgment. The `camera_bps` in the ACK is the
+actual value applied by the device.
 
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
+---
+
+## Tasks
+
+### TaskType — Task Type
+
+| Value | Integer | Description |
+|:--|:--:|:--|
 | `UNKNOWN` | 0 | Unknown |
 | `SCAN_QR` | 1 | Scan QR code |
 | `MAPPING` | 2 | Mapping |
@@ -648,84 +549,162 @@ Task type enumeration.
 
 ---
 
-### TaskStatus
+### TaskStatus — Task Status
 
-```cpp
-enum class TaskStatus
-```
-
-**Description:**  
-Task status enumeration.
-
-| Enum Value | Integer Value | Description |
-|:--|:--|:--|
+| Value | Integer | Description |
+|:--|:--:|:--|
 | `UNKNOWN` | 0 | Unknown |
 | `STARTING` | 1 | Starting |
 | `RUNNING` | 2 | Running |
-| `SUCCESS` | 3 | Success (terminal state) |
-| `FAILURE` | 4 | Failure (terminal state) |
-| `STOPPED` | 5 | Stopped (terminal state) |
+| `SUCCESS` | 3 | Succeeded (final) |
+| `FAILURE` | 4 | Failed (final) |
+| `STOPPED` | 5 | Stopped (final) |
+
+> The three final states (`SUCCESS` / `FAILURE` / `STOPPED`) mean the task has ended;
+> no further updates for that task will arrive afterwards.
 
 ---
 
 ### TaskStateInfo
 
 ```cpp
-struct TaskStateInfo
+struct TaskStateInfo {
+  TaskType task_type;      // Task type
+  TaskStatus task_status;  // Task status
+  std::string phase;       // Task phase description (reserved)
+  uint32_t error_code;     // 0 = success, non-zero = failure
+};
 ```
 
-**Description:**  
-Task state information structure.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `task_type` | `TaskType` | Task type |
-| `task_status` | `TaskStatus` | Task status |
-| `phase` | `std::string` | Current task phase description |
-| `error_code` | `uint32_t` | Error code (`0` means success, non-zero means failure) |
+Actively reported by the robot when a task's state changes; received via `OnTaskStateData()`.
+Mainly used to monitor recharge and undock tasks — see
+[Recharge & Undock Task Guide](sdk_recharge_task_en.md).
 
 ---
 
-### MotionData
+## Peripheral Power
+
+### PeripheralPower
 
 ```cpp
-struct MotionData
+enum class PeripheralPower
 ```
 
-**Description:**  
-Detailed motion control data.
+Peripheral power channels.
 
-| Member | Type | Description |
-|:--|:--|:--|
-| `quat[4]` | `float` | Quaternion `[w, x, y, z]` |
-| `v_world[3]` | `float` | Velocity in world coordinates `[x, y, z]` (m/s) |
-| `position[3]` | `float` | Position in world coordinates `[x, y, z]` (m) |
-| `omega_world[3]` | `float` | Angular velocity in world coordinates `[x, y, z]` (rad/s) |
-| `v_body[3]` | `float` | Velocity in body coordinates `[x, y, z]` (m/s) |
-| `omega_body[3]` | `float` | Angular velocity in body coordinates `[x, y, z]` (rad/s) |
-| `time_stamp` | `uint64_t` | Timestamp (ns) |
-
-### SpeedData
-
-```cpp
-struct SpeedData
-```
-
-**Description:**  
-Speed report information.
-
-| Member | Type | Description |
-|:--|:--|:--|
-| `x` | `float` | Forward/backward velocity (m/s) |
-| `y` | `float` | Left/right lateral velocity (m/s) |
-| `yaw` | `float` | Rotational angular velocity (rad/s) |
+| Value | Integer | Description |
+|:--|:--:|:--|
+| `UNKNOWN` | 0 | Unknown |
+| `M1_48V` | 1 | M1 48V peripheral power |
+| `M1_24V` | 2 | M1 24V peripheral power |
+| `M1_12V` | 3 | M1 12V peripheral power |
 
 ---
 
-## Related Documentation
+### PowerCtrlCfg / PowerCtrlAck
 
-- [SDKClient API Documentation](sdk_client_api_en.md) - Detailed client interface description
-- [Connection Configuration Documentation](sdk_connection_en.md) - Connection parameters and status description
-- [Callback Interface Documentation](sdk_callback_en.md) - Callback interface definitions
-- [Recharge and Undock Task Usage Guide](sdk_recharge_task_en.md) - State transitions and usage recommendations for recharge and undock tasks
-- [State Definition Documentation](sdk_state_en.md) - Detailed explanation of connection state and motion state
+```cpp
+struct PowerCtrlCfg {
+  PeripheralPower power;  // Power channel
+  bool enable;            // true = power on, false = power off
+};
+struct PowerCtrlAck { /* same fields */ };
+```
+
+Peripheral power control parameters and acknowledgment. For queries, only `power` needs
+to be filled in; the `enable` field in the `OnGetPeriphPower()` ACK reports the channel's
+actual current state.
+
+---
+
+## LED
+
+### LedId — LED Group
+
+| Value | Integer | Description |
+|:--|:--:|:--|
+| `UNKNOWN` | 0 | Unknown (invalid; the SDK rejects it) |
+| `ALL` | 1 | All LEDs |
+| `FRONT` | 2 | Front LEDs |
+| `BACK` | 3 | Back LEDs |
+
+---
+
+### LedEffect — LED Effect
+
+| Value | Protocol Value | Description |
+|:--|:--|:--|
+| `UNKNOWN` | — | Unknown (invalid; the SDK rejects it) |
+| `OFF` | `off` | Off |
+| `ON` | `on` | Solid on |
+| `BREATH` | `breath` | Breathing |
+| `BLINK` | `blink` | Blinking |
+| `BLINK_TRANSIENT` | `blink_transient` | Transient blink |
+
+---
+
+### LedColor
+
+```cpp
+struct LedColor {
+  uint8_t r, g, b, a;  // RGBA components, 0–255 each
+};
+```
+
+LED color; `a` is the brightness/alpha component.
+
+---
+
+### LedCommand / LedCommandAck
+
+```cpp
+struct LedCommand {
+  LedId id;              // LED group
+  LedEffect effect;      // Effect
+  LedColor color;        // Color
+  uint32_t duration_ms;  // Effect period / blink interval (ms)
+};
+struct LedCommandAck { /* same fields */ };
+```
+
+LED effect command and acknowledgment. See the [LED Control Guide](sdk_led_control_en.md)
+for full usage.
+
+---
+
+### LedAutoModeAck
+
+```cpp
+struct LedAutoModeAck {
+  bool auto_mode;  // true = auto mode, false = manual mode
+};
+```
+
+ACK for setting/querying the LED auto mode. In auto mode, effects are switched by the robot
+according to its own state; in manual mode, they are controlled by `SetLedCommand()`.
+
+---
+
+## Position Control
+
+### PosControlCmd
+
+```cpp
+struct PosControlCmd {
+  float x, y, z;          // Target position (m)
+  float roll, pitch, yaw; // Target orientation (rad)
+};
+```
+
+Target body pose in position-control mode, used with `PosMove()` (enter the position-control
+posture first via `PosControl()`).
+
+---
+
+## Related Documents
+
+- [SDKClient API Reference](sdk_client_api_en.md) — Client interface details
+- [Callback Reference](sdk_callback_en.md) — Callback definitions and usage constraints
+- [Connection Guide](sdk_connection_en.md) — Connection parameters and states
+- [Control Ownership](sdk_control_ownership_en.md) — SDK vs APP ownership rules
+- [Recharge & Undock Task Guide](sdk_recharge_task_en.md) — Task state flow and usage tips

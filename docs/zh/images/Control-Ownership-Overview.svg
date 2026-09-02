@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1010" viewBox="0 0 1600 1010" role="img" aria-labelledby="title desc">
+  <title id="title">SDK and APP control ownership overview</title>
+  <desc id="desc">Compares ownership transitions, key callbacks, and permissions when the SDK connects first or the APP connects first.</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#0f172a" flood-opacity=".10"/>
+    </filter>
+    <marker id="m-flow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#cbd5e1"/>
+    </marker>
+    <style>
+      text { font-family: Inter, Arial, sans-serif; fill: #0f172a; }
+      .title { font-size: 40px; font-weight: 750; }
+      .subtitle { font-size: 20px; fill: #475569; }
+      .rule-title { font-size: 19px; font-weight: 700; }
+      .rule-body { font-size: 15px; fill: #475569; }
+      .panel-title { font-size: 25px; font-weight: 750; }
+      .panel-subtitle { font-size: 16px; fill: #64748b; }
+      .step-title { font-size: 17px; font-weight: 700; }
+      .step-body { font-size: 14px; fill: #475569; }
+      .step-no { font-size: 17px; font-weight: 800; fill: #fff; text-anchor: middle; dominant-baseline: middle; }
+      .badge { font-size: 13.5px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+      .chip { font-size: 16px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+      .note-title { font-size: 15.5px; font-weight: 700; fill: #b45309; }
+      .note-body { font-size: 14px; fill: #78350f; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1010" fill="#f8fafc"/>
+  <text x="80" y="74" class="title">SDK and APP Control Ownership at a Glance</text>
+  <text x="80" y="112" class="subtitle">First come, first served. The APP may take over; the SDK may not preempt. Observers can still monitor and trigger the software e-stop.</text>
+
+  <!-- Core rule cards -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="140" width="453" height="96" rx="18" fill="#fff" stroke="#e2e8f0"/>
+    <rect x="573" y="140" width="453" height="96" rx="18" fill="#ecfdf5" stroke="#86efac"/>
+    <rect x="1066" y="140" width="454" height="96" rx="18" fill="#eff6ff" stroke="#93c5fd"/>
+  </g>
+  <circle cx="126" cy="188" r="20" fill="#334155"/><text x="126" y="188" class="step-no">1</text>
+  <text x="160" y="180" class="rule-title">First come, first served</text>
+  <text x="160" y="206" class="rule-body">The first client to finish the handshake owns control</text>
+  <circle cx="619" cy="188" r="20" fill="#16a34a"/><text x="619" y="188" class="step-no">2</text>
+  <text x="653" y="180" class="rule-title">APP can take over from SDK</text>
+  <text x="653" y="206" class="rule-body">SDK becomes an observer after OnControlLost()</text>
+  <circle cx="1112" cy="188" r="20" fill="#2563eb"/><text x="1112" y="188" class="step-no">3</text>
+  <text x="1146" y="180" class="rule-title">SDK cannot preempt APP</text>
+  <text x="1146" y="206" class="rule-body">Wait for OnControlAvailable() before requesting</text>
+
+  <!-- Scenario A panel -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="272" width="720" height="640" rx="24" fill="#fff" stroke="#dbeafe" stroke-width="2"/>
+  </g>
+  <text x="112" y="318" class="panel-title">Scenario A: SDK first, APP takes over later</text>
+  <text x="112" y="346" class="panel-subtitle">Controller → Observer → Request again: ownership returns to the SDK</text>
+
+  <g stroke="#cbd5e1" stroke-width="2">
+    <line x1="140" y1="417" x2="140" y2="440" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="479" x2="140" y2="502" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="541" x2="140" y2="564" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="603" x2="140" y2="626" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="665" x2="140" y2="688" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="727" x2="140" y2="750" marker-end="url(#m-flow)"/>
+  </g>
+
+  <circle cx="140" cy="400" r="17" fill="#16a34a"/><text x="140" y="400" class="step-no">1</text>
+  <text x="176" y="398" class="step-title">SDK finishes handshake, owns control</text>
+  <text x="176" y="420" class="step-body">First come, first served: normal commands can be sent</text>
+  <rect x="656" y="387" width="120" height="26" rx="13" fill="#dcfce7"/><text x="716" y="400" class="badge" fill="#15803d">Controller</text>
+
+  <circle cx="140" cy="462" r="17" fill="#2563eb"/><text x="140" y="462" class="step-no">2</text>
+  <text x="176" y="460" class="step-title">APP connects and takes over</text>
+  <text x="176" y="482" class="step-body">The robot transfers ownership to the APP</text>
+  <rect x="656" y="449" width="120" height="26" rx="13" fill="#dbeafe"/><text x="716" y="462" class="badge" fill="#1d4ed8">APP controls</text>
+
+  <circle cx="140" cy="524" r="17" fill="#dc2626"/><text x="140" y="524" class="step-no">3</text>
+  <text x="176" y="522" class="step-title">SDK receives OnControlLost()</text>
+  <text x="176" y="544" class="step-body">Stop normal commands immediately (except software e-stop)</text>
+  <rect x="656" y="511" width="120" height="26" rx="13" fill="#f1f5f9"/><text x="716" y="524" class="badge" fill="#475569">Observer</text>
+
+  <circle cx="140" cy="586" r="17" fill="#64748b"/><text x="140" y="586" class="step-no">4</text>
+  <text x="176" y="584" class="step-title">SDK keeps monitoring</text>
+  <text x="176" y="606" class="step-body">State and fault data remain available while waiting</text>
+  <rect x="656" y="573" width="120" height="26" rx="13" fill="#f1f5f9"/><text x="716" y="586" class="badge" fill="#475569">Observer</text>
+
+  <circle cx="140" cy="648" r="17" fill="#64748b"/><text x="140" y="648" class="step-no">5</text>
+  <text x="176" y="646" class="step-title">APP disconnects</text>
+  <text x="176" y="668" class="step-body">SDK receives OnControlAvailable(): ownership can be requested</text>
+  <rect x="656" y="635" width="120" height="26" rx="13" fill="#f1f5f9"/><text x="716" y="648" class="badge" fill="#475569">Observer</text>
+
+  <circle cx="140" cy="710" r="17" fill="#2563eb"/><text x="140" y="710" class="step-no">6</text>
+  <text x="176" y="708" class="step-title">SDK calls TakeControl()</text>
+  <text x="176" y="730" class="step-body">Requests the now-available ownership from the robot</text>
+  <rect x="656" y="697" width="120" height="26" rx="13" fill="#e0f2fe"/><text x="716" y="710" class="badge" fill="#0369a1">Requesting</text>
+
+  <circle cx="140" cy="772" r="17" fill="#16a34a"/><text x="140" y="772" class="step-no">7</text>
+  <text x="176" y="770" class="step-title">SDK receives OnTakeControlAck(error_code = 0)</text>
+  <text x="176" y="792" class="step-body">Request granted: resume normal control</text>
+  <rect x="656" y="759" width="120" height="26" rx="13" fill="#dcfce7"/><text x="716" y="772" class="badge" fill="#15803d">Controller</text>
+
+  <rect x="112" y="824" width="656" height="44" rx="12" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="440" y="846" class="chip" fill="#15803d">✔ Result: after one takeover, ownership returns to the SDK</text>
+
+  <!-- Scenario B panel -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="272" width="720" height="640" rx="24" fill="#fff" stroke="#dbeafe" stroke-width="2"/>
+  </g>
+  <text x="832" y="318" class="panel-title">Scenario B: APP first, SDK connects later</text>
+  <text x="832" y="346" class="panel-subtitle">The SDK observes until the APP disconnects, then requests ownership</text>
+
+  <g stroke="#cbd5e1" stroke-width="2">
+    <line x1="860" y1="417" x2="860" y2="440" marker-end="url(#m-flow)"/>
+    <line x1="860" y1="479" x2="860" y2="502" marker-end="url(#m-flow)"/>
+    <line x1="860" y1="541" x2="860" y2="564" marker-end="url(#m-flow)"/>
+    <line x1="860" y1="603" x2="860" y2="626" marker-end="url(#m-flow)"/>
+    <line x1="860" y1="665" x2="860" y2="688" marker-end="url(#m-flow)"/>
+  </g>
+
+  <circle cx="860" cy="400" r="17" fill="#2563eb"/><text x="860" y="400" class="step-no">1</text>
+  <text x="896" y="398" class="step-title">APP finishes handshake, owns control</text>
+  <text x="896" y="420" class="step-body">First come, first served: the APP becomes the controller</text>
+  <rect x="1376" y="387" width="120" height="26" rx="13" fill="#dbeafe"/><text x="1436" y="400" class="badge" fill="#1d4ed8">APP controls</text>
+
+  <circle cx="860" cy="462" r="17" fill="#64748b"/><text x="860" y="462" class="step-no">2</text>
+  <text x="896" y="460" class="step-title">SDK finishes handshake</text>
+  <text x="896" y="482" class="step-body">A controller already exists: SDK starts as an observer</text>
+  <rect x="1376" y="449" width="120" height="26" rx="13" fill="#f1f5f9"/><text x="1436" y="462" class="badge" fill="#475569">Observer</text>
+
+  <circle cx="860" cy="524" r="17" fill="#64748b"/><text x="860" y="524" class="step-no">3</text>
+  <text x="896" y="522" class="step-title">SDK monitors state only</text>
+  <text x="896" y="544" class="step-body">No normal commands; wait for the availability notification</text>
+  <rect x="1376" y="511" width="120" height="26" rx="13" fill="#f1f5f9"/><text x="1436" y="524" class="badge" fill="#475569">Observer</text>
+
+  <circle cx="860" cy="586" r="17" fill="#2563eb"/><text x="860" y="586" class="step-no">4</text>
+  <text x="896" y="584" class="step-title">APP disconnects</text>
+  <text x="896" y="606" class="step-body">SDK receives OnControlAvailable(): ownership can be requested</text>
+  <rect x="1376" y="573" width="120" height="26" rx="13" fill="#f1f5f9"/><text x="1436" y="586" class="badge" fill="#475569">Observer</text>
+
+  <circle cx="860" cy="648" r="17" fill="#2563eb"/><text x="860" y="648" class="step-no">5</text>
+  <text x="896" y="646" class="step-title">SDK calls TakeControl()</text>
+  <text x="896" y="668" class="step-body">Requests ownership from the robot</text>
+  <rect x="1376" y="635" width="120" height="26" rx="13" fill="#e0f2fe"/><text x="1436" y="648" class="badge" fill="#0369a1">Requesting</text>
+
+  <circle cx="860" cy="710" r="17" fill="#16a34a"/><text x="860" y="710" class="step-no">6</text>
+  <text x="896" y="708" class="step-title">SDK receives OnTakeControlAck(error_code = 0)</text>
+  <text x="896" y="730" class="step-body">Request granted: SDK becomes the new controller</text>
+  <rect x="1376" y="697" width="120" height="26" rx="13" fill="#dcfce7"/><text x="1436" y="710" class="badge" fill="#15803d">Controller</text>
+
+  <rect x="832" y="760" width="656" height="120" rx="12" fill="#fffbeb" stroke="#f59e0b"/>
+  <text x="856" y="790" class="note-title">Implementation note (current gateway behavior)</text>
+  <text x="856" y="814" class="note-body">If the APP calls ReleaseControl() but stays connected, an SDK TakeControl()</text>
+  <text x="856" y="838" class="note-body">request may still fail. Wait for the APP to disconnect and for OnControlAvailable().</text>
+
+  <!-- Footer permission chips -->
+  <rect x="240" y="936" width="360" height="48" rx="24" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="420" y="960" class="chip" fill="#15803d">Normal commands: controller only</text>
+  <rect x="640" y="936" width="420" height="48" rx="24" fill="#fff" stroke="#e2e8f0"/>
+  <text x="850" y="960" class="chip" fill="#475569">State / fault data: controller + observer</text>
+  <rect x="1100" y="936" width="320" height="48" rx="24" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="1260" y="960" class="chip" fill="#c2410c">Software e-stop: both sides</text>
+</svg>

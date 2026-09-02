@@ -96,6 +96,11 @@ const std::unordered_map<MachineStatus, const char*> g_machine_status_map = {
     {MachineStatus::FOLLOW, "Follow"},
     {MachineStatus::TRACK, "Track"},
     {MachineStatus::UNDOCK, "Undock"},
+    {MachineStatus::DOCK_CALIBRATION, "DockCalibration"},
+    {MachineStatus::ESTOP, "Estop"},
+    {MachineStatus::FALL, "Fall"},
+    {MachineStatus::LOCAL_REMOTE, "LocalRemote"},
+    {MachineStatus::LOW_LEVEL, "LowLevel"},
     {MachineStatus::UNKNOWN, "Unknown"}};
 
 // Signal handler function

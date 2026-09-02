@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="860" viewBox="0 0 1500 860" role="img" aria-labelledby="title desc">
+  <title id="title">SDK 运动姿态总览</title>
+  <desc id="desc">十四种姿态分为可移动、原地、位控、特殊四组，展示各组能力与切换规则。</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#0f172a" flood-opacity=".09"/>
+    </filter>
+    <style>
+      text { font-family: Inter, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 36px; font-weight: 750; }
+      .subtitle { font-size: 18px; fill: #475569; }
+      .card-title { font-size: 22px; font-weight: 750; }
+      .card-sub { font-size: 15px; fill: #64748b; }
+      .chip { font-size: 15px; font-weight: 650; text-anchor: middle; dominant-baseline: middle; }
+      .chip-sm { font-size: 13.5px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }
+      .note { font-size: 14px; fill: #64748b; }
+      .rule { font-size: 15.5px; fill: #334155; }
+    </style>
+  </defs>
+
+  <rect width="1500" height="860" fill="#f8fafc"/>
+  <text x="60" y="58" class="title">SDK 运动姿态总览：四组姿态，各司其职</text>
+  <text x="60" y="90" class="subtitle">切换姿态用控制接口，确认状态看 RobotState.motion_status（连接后 1 Hz 主动上报）</text>
+
+  <!-- 可移动姿态 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="120" width="700" height="310" rx="20" fill="#fff" stroke="#86efac" stroke-width="2"/>
+  </g>
+  <circle cx="92" cy="156" r="9" fill="#16a34a"/>
+  <text x="112" y="163" class="card-title">可移动姿态（8 种）</text>
+  <text x="112" y="188" class="card-sub">进入姿态后即可用 Move() 行走；速度上限由 SetSpeed() 档位决定</text>
+  <g fill="#f0fdf4" stroke="#86efac">
+    <rect x="88" y="212" width="155" height="44" rx="10"/>
+    <rect x="253" y="212" width="155" height="44" rx="10"/>
+    <rect x="418" y="212" width="155" height="44" rx="10"/>
+    <rect x="583" y="212" width="155" height="44" rx="10"/>
+    <rect x="88" y="272" width="155" height="44" rx="10"/>
+    <rect x="253" y="272" width="155" height="44" rx="10"/>
+    <rect x="418" y="272" width="155" height="44" rx="10"/>
+    <rect x="583" y="272" width="155" height="44" rx="10"/>
+  </g>
+  <text x="165" y="234" class="chip" fill="#15803d">站立 StandUp</text>
+  <text x="330" y="234" class="chip" fill="#15803d">登阶 Stair</text>
+  <text x="495" y="234" class="chip" fill="#15803d">匍匐行走 CrawlWalk</text>
+  <text x="660" y="234" class="chip" fill="#15803d">爬高台 Climb</text>
+  <text x="165" y="294" class="chip" fill="#15803d">步态 Gait</text>
+  <text x="330" y="294" class="chip" fill="#15803d">瘦身 Slim</text>
+  <text x="495" y="294" class="chip" fill="#15803d">过挡鼠板 DSB</text>
+  <text x="660" y="294" class="chip" fill="#15803d">沙地 Sand</text>
+  <text x="88" y="352" class="note">• 站立完成后 motion_status 变为 WALK（可行走状态）</text>
+  <text x="88" y="376" class="note">• 爬高台 / 步态 / 瘦身 / 过挡鼠板 / 沙地仅通用模式可用</text>
+  <text x="88" y="400" class="note">• 瘦身 / 过挡鼠板 / 沙地不支持 L2 系列</text>
+
+  <!-- 原地姿态 -->
+  <g filter="url(#shadow)">
+    <rect x="790" y="120" width="650" height="310" rx="20" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+  </g>
+  <circle cx="822" cy="156" r="9" fill="#2563eb"/>
+  <text x="842" y="163" class="card-title">原地姿态（3 种）</text>
+  <text x="842" y="188" class="card-sub">静止不动；平衡站立支持三种专属微调</text>
+  <g fill="#eff6ff" stroke="#93c5fd">
+    <rect x="818" y="212" width="230" height="44" rx="10"/>
+    <rect x="1064" y="212" width="160" height="44" rx="10"/>
+    <rect x="1240" y="212" width="160" height="44" rx="10"/>
+  </g>
+  <text x="933" y="234" class="chip" fill="#1d4ed8">平衡站立 BalanceStandUp</text>
+  <text x="1144" y="234" class="chip" fill="#1d4ed8">卧倒 LieDown</text>
+  <text x="1320" y="234" class="chip" fill="#1d4ed8">匍匐 Crawl</text>
+  <text x="818" y="282" class="note">平衡站立的专属微调（仅原地模式有效）：</text>
+  <g fill="#dbeafe" stroke="#93c5fd">
+    <rect x="818" y="300" width="190" height="38" rx="10"/>
+    <rect x="1024" y="300" width="190" height="38" rx="10"/>
+    <rect x="1230" y="300" width="190" height="38" rx="10"/>
+  </g>
+  <text x="913" y="319" class="chip-sm" fill="#1e40af">ControlHead 头部</text>
+  <text x="1119" y="319" class="chip-sm" fill="#1e40af">Turn 机体翻滚</text>
+  <text x="1325" y="319" class="chip-sm" fill="#1e40af">HighLowStance 站姿</text>
+  <text x="818" y="376" class="note">• 卧倒 / 匍匐无专属微调命令</text>
+  <text x="818" y="400" class="note">• Move() 在这组姿态下不生效</text>
+
+  <!-- 位控姿态 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="460" width="700" height="230" rx="20" fill="#fff" stroke="#c4b5fd" stroke-width="2"/>
+  </g>
+  <circle cx="92" cy="496" r="9" fill="#7c3aed"/>
+  <text x="112" y="503" class="card-title">位控姿态 PosControl</text>
+  <text x="112" y="528" class="card-sub">直接设定身体目标位姿（仅通用模式）</text>
+  <g fill="#f5f3ff" stroke="#c4b5fd">
+    <rect x="88" y="552" width="180" height="48" rx="10"/>
+    <rect x="328" y="552" width="404" height="48" rx="10"/>
+  </g>
+  <text x="178" y="576" class="chip" fill="#6d28d9">PosControl()</text>
+  <text x="530" y="576" class="chip" fill="#6d28d9">PosMove()：x / y / z（m）+ roll / pitch / yaw（rad）</text>
+  <line x1="268" y1="576" x2="322" y2="576" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow-v)"/>
+  <text x="88" y="640" class="note">• 进入位控姿态后，通过 PosMove() 连续调整机身位置与姿态角</text>
+  <text x="88" y="664" class="note">• 上报状态为 MOTION_STATUS_POS_CONTROL</text>
+
+  <!-- 特殊姿态 -->
+  <g filter="url(#shadow)">
+    <rect x="790" y="460" width="650" height="230" rx="20" fill="#fff" stroke="#fdba74" stroke-width="2"/>
+  </g>
+  <circle cx="822" cy="496" r="9" fill="#ea580c"/>
+  <text x="842" y="503" class="card-title">特殊姿态（2 种）</text>
+  <text x="842" y="528" class="card-sub">切换规则与其他姿态不同，需特别注意</text>
+  <g fill="#fff7ed" stroke="#fdba74">
+    <rect x="818" y="552" width="160" height="44" rx="10"/>
+    <rect x="818" y="616" width="160" height="44" rx="10"/>
+  </g>
+  <text x="898" y="574" class="chip" fill="#c2410c">锁定 Locked</text>
+  <text x="898" y="638" class="chip" fill="#c2410c">同膝 SkWalk</text>
+  <text x="998" y="568" class="note">关节保持当前位置不动；</text>
+  <text x="998" y="590" class="note">切到任意其他姿态即自动解锁</text>
+  <text x="998" y="630" class="note">支持 Move()；只能切回 StandUp；</text>
+  <text x="998" y="652" class="note">L2 系列不支持</text>
+
+  <!-- 底部切换规则 -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="720" width="1380" height="110" rx="18" fill="#fff" stroke="#e2e8f0"/>
+  </g>
+  <text x="92" y="756" class="rule" font-weight="700">切换规则：</text>
+  <text x="190" y="756" class="rule">① 任意姿态可直接互切，无需先回站立（唯一例外：SkWalk 只能切回 StandUp）</text>
+  <text x="190" y="784" class="rule">② 命令应答（ACK）只表示机器人“已收到命令”，姿态是否切换成功以 RobotState.motion_status 为准</text>
+  <text x="190" y="812" class="rule">③ ReverseHeadTail（调转头尾）不支持 L2 系列及 M1-Air、M1F-Air</text>
+
+  <defs>
+    <marker id="arrow-v" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+</svg>

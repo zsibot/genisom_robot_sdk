@@ -38,7 +38,6 @@ static std::atomic<bool> g_auto_mode_light_on{false};
 static std::atomic<bool> g_led_auto_mode_on{true};
 static std::atomic<bool> g_obstacle_avoidance_on{false};
 static std::atomic<bool> g_estop_on{false};
-static std::atomic<uint32_t> g_photo_task_id{1};
 
 // Synchronization primitives
 static std::mutex g_connect_mtx;
@@ -89,6 +88,11 @@ const std::unordered_map<MachineStatus, const char*> g_machine_status_map = {
     {MachineStatus::FOLLOW, "Follow"},
     {MachineStatus::TRACK, "Track"},
     {MachineStatus::UNDOCK, "Undock"},
+    {MachineStatus::DOCK_CALIBRATION, "DockCalibration"},
+    {MachineStatus::ESTOP, "Estop"},
+    {MachineStatus::FALL, "Fall"},
+    {MachineStatus::LOCAL_REMOTE, "LocalRemote"},
+    {MachineStatus::LOW_LEVEL, "LowLevel"},
     {MachineStatus::UNKNOWN, "Unknown"}};
 
 // Signal handler function
@@ -231,16 +235,12 @@ class ControlCallback : public IControlCallback {
     }
   }
 
-  void OnTakePhotoAck(const TakePhotoAck& ack) override {
-    if (ack.error_code == 0) {
-      std::cout << "[CTRL] ✓ Take Photo Success, TaskID: " << ack.task_id
-                << ", DeviceID: " << ack.device_id << std::endl;
-    } else {
-      std::cout << "[CTRL] ✗ Take Photo Failed, TaskID: " << ack.task_id
-                << ", DeviceID: " << ack.device_id
-                << ", ErrorCode: " << ack.error_code
-                << ", Reason: " << ack.reason << std::endl;
-    }
+  void OnSwitchRemote() override {
+    std::cout << "[CTRL] ✓ Switch Remote State" << std::endl;
+  }
+
+  void OnSwitchIdle() override {
+    std::cout << "[CTRL] ✓ Switch Idle State" << std::endl;
   }
 
   void OnSetPeriphPower(const PowerCtrlAck& ack) override {
@@ -374,35 +374,6 @@ void PrintRobotState(const RobotState& data) {
 // Command handler function type
 using CommandHandler = std::function<void(SDKClient&)>;
 
-void SendTakePhoto(SDKClient& client, PhotoDeviceId device_id) {
-  TakePhotoCmd cmd;
-  cmd.task_id = g_photo_task_id.fetch_add(1);
-  cmd.device_id = static_cast<uint32_t>(device_id);
-
-  const char* device_name =
-      (device_id == PhotoDeviceId::FRONT) ? "front" : "back";
-  auto err = client.TakePhoto(cmd, 0,
-                              [task_id = cmd.task_id, device_name](
-                                  const std::error_code& ec, std::size_t) {
-                                if (ec) {
-                                  std::cerr
-                                      << "[ERROR] TakePhoto " << device_name
-                                      << " command failed, TaskID: " << task_id
-                                      << ", Error: " << ec.message()
-                                      << std::endl;
-                                }
-                              });
-  if (err) {
-    std::cerr << "[ERROR] TakePhoto " << device_name
-              << " command rejected, TaskID: " << cmd.task_id
-              << ", Error: " << err.message() << std::endl;
-    return;
-  }
-
-  std::cout << "[CMD] Take photo " << device_name << ", TaskID: " << cmd.task_id
-            << std::endl;
-}
-
 /**
  * @brief Print control help information
  */
@@ -414,6 +385,7 @@ void PrintHelp() {
   std::cout << "[PosMove]  +:Z+  -:Z- " << std::endl;
   std::cout << "[Yaw]      L:Left  R:Right" << std::endl;
   std::cout << "[Roll]     7:Left roll  8:Right roll" << std::endl;
+  std::cout << "[Stance]   <:Low  >:High  ?:Restore" << std::endl;
   std::cout << "[Head]     9:Look Left  0:Look Up" << std::endl;
   std::cout << "[Pose]     1:BalanceStandUp  2:CrawlWalk  3:Stair  Z:Stand  "
                "X:Crawl  C:Lie  G:Gait  J:Climb  K:Slim  U:PosControl  /:SkWalk"
@@ -423,10 +395,11 @@ void PrintHelp() {
   std::cout << "[LED]      Shift+N:AutoMode  =:GetAuto  {:BlinkOrange  }:Off"
             << std::endl;
   std::cout << "[Safety]   I:ObstacleAvoidance" << std::endl;
-  std::cout << "[Photo]    [:Front Camera  ]:Back Camera" << std::endl;
   std::cout << "[System]   E:E-Stop  M:Lock  V:Reverse Head/Tail" << std::endl;
-  std::cout << "[Control]  T:TakeControl Y:ReleaseControl Space:Stop  O:Status "
-               " H:Help  Q:Quit"
+  std::cout << "[Control]  T:TakeControl Y:ReleaseControl Shift+R:RemoteState "
+               "Shift+I:IdleState"
+            << std::endl;
+  std::cout << "[General]  Space:Stop  O:Status  H:Help  Q:Quit"
             << std::endl;
   std::cout << "[PowerCtrl] ,:Set M1_12V  .:Get M1_12V" << std::endl;
   std::cout << "======================================\n" << std::endl;
@@ -456,6 +429,12 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
        [](SDKClient& client) { client.ControlHead(0.5, 0.0); }},  // Left peek
       {'0',
        [](SDKClient& client) { client.ControlHead(0.0, 0.5); }},  // Look up
+      {'<',
+       [](SDKClient& client) { client.HighLowStance(2); }},  // Low stance
+      {'>',
+       [](SDKClient& client) { client.HighLowStance(1); }},  // High stance
+      {'?',
+       [](SDKClient& client) { client.HighLowStance(0); }},  // Restore stance
 
       // ============ Directional Movement ============
       {'w', [](SDKClient& client) { client.Move(0.0, 0.11, 0.0); }},  // Forward
@@ -509,6 +488,14 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
       {'t', [](SDKClient& client) { client.TakeControl(); }},  // Take control
       {'y',
        [](SDKClient& client) { client.ReleaseControl(); }},  // Release control
+      {'R',
+       [](SDKClient& client) {
+         client.SwitchRemoteState();
+       }},  // Switch to remote state
+      {'I',
+       [](SDKClient& client) {
+         client.SwitchIdleState();
+       }},  // Switch to idle state
 
       // ============ Light Control ============
       {'f',
@@ -621,12 +608,6 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
          }
        }},
 
-      // ============ Photo Test ============
-      {'[',
-       [](SDKClient& client) { SendTakePhoto(client, PhotoDeviceId::FRONT); }},
-      {']',
-       [](SDKClient& client) { SendTakePhoto(client, PhotoDeviceId::BACK); }},
-
       // ============ System Control ============
       {'e',
        [](SDKClient& client) {  // Emergency stop
@@ -728,8 +709,14 @@ int main(int argc, char* argv[]) {
   }
 
   // Get system version
-  std::cout << "[INFO] System Version: " << sdk_client.SystemVersion() << "\n"
+  std::cout << "[INFO] System Version: " << sdk_client.SystemVersion()
             << std::endl;
+
+  // Print device information cached from the handshake
+  const auto device_info = sdk_client.GetDeviceInfo();
+  std::cout << "[INFO] Device Type: "
+            << robot_sdk::DeviceTypeName(device_info.device_type) << std::endl;
+  std::cout << "[INFO] Device SN: " << device_info.sn << "\n" << std::endl;
 
   // Print control help
   PrintHelp();

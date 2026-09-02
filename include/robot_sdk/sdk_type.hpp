@@ -8,6 +8,64 @@ namespace robot_sdk {
 
 enum class TransportProtocol { WebSocket, Udp };
 
+/// @brief Robot model reported by the handshake.
+enum class DeviceType : uint8_t {
+  UNKNOWN = 0,
+  M1 = 1,
+  M1F = 2,
+  M1_PRO = 3,
+  M1F_PRO = 4,
+  M1_ULTRA = 5,
+  M1F_ULTRA = 6,
+  M1_AIR = 7,
+  M1F_AIR = 8,
+  L2 = 9,
+  L2_ULTRA = 10,
+  L2F = 11,
+  L2F_ULTRA = 12,
+};
+
+/// @brief Returns a stable, human-readable name for a device type.
+inline constexpr const char* DeviceTypeName(DeviceType type) noexcept {
+  switch (type) {
+    case DeviceType::M1:
+      return "M1";
+    case DeviceType::M1F:
+      return "M1F";
+    case DeviceType::M1_PRO:
+      return "M1-Pro";
+    case DeviceType::M1F_PRO:
+      return "M1F-Pro";
+    case DeviceType::M1_ULTRA:
+      return "M1-Ultra";
+    case DeviceType::M1F_ULTRA:
+      return "M1F-Ultra";
+    case DeviceType::M1_AIR:
+      return "M1-Air";
+    case DeviceType::M1F_AIR:
+      return "M1F-Air";
+    case DeviceType::L2:
+      return "L2";
+    case DeviceType::L2_ULTRA:
+      return "L2-Ultra";
+    case DeviceType::L2F:
+      return "L2F";
+    case DeviceType::L2F_ULTRA:
+      return "L2F-Ultra";
+    case DeviceType::UNKNOWN:
+    default:
+      return "UNKNOWN";
+  }
+}
+
+/// @brief Device information returned by the handshake response.
+struct DeviceInfo {
+  /// @brief Device type used for device-specific capability adaptation.
+  DeviceType device_type = DeviceType::UNKNOWN;
+  /// @brief Robot serial number.
+  std::string sn;
+};
+
 enum class FaultCode {
   Unknown,                      // Unknown fault
   ActuatorDisabled = 10,        // Actuator disabled
@@ -195,6 +253,11 @@ enum class MachineStatus {
   FOLLOW = 11,
   TRACK = 12,
   UNDOCK = 13,
+  DOCK_CALIBRATION = 14,
+  ESTOP = 15,
+  FALL = 16,
+  LOCAL_REMOTE = 17,
+  LOW_LEVEL = 18,
 };
 
 enum class CtrlSource {
@@ -425,31 +488,6 @@ struct CameraBitrateAck {
   std::string camera_name;
   /// @brief Camera bitrate in bps (bit/s). Range: 50000-100000000.
   uint32_t camera_bps;
-};
-
-enum class PhotoDeviceId : uint32_t {
-  FRONT = 0,
-  BACK = 1,
-};
-
-/// @brief Take photo command.
-struct TakePhotoCmd {
-  /// @brief Task ID supplied by caller.
-  uint32_t task_id;
-  /// @brief Camera device ID. 0 = front camera, 1 = back camera.
-  uint32_t device_id;
-};
-
-/// @brief Take photo command acknowledgment information.
-struct TakePhotoAck {
-  /// @brief Task ID supplied by caller.
-  uint32_t task_id;
-  /// @brief Camera device ID. 0 = front camera, 1 = back camera.
-  uint32_t device_id;
-  /// @brief Success status: 0 = success, non-zero = failure.
-  uint32_t error_code;
-  /// @brief Failure reason description.
-  std::string reason;
 };
 
 struct TaskStateInfo {

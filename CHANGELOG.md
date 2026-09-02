@@ -3,6 +3,23 @@
 This document records the feature updates, improvements, and bug fixes for each version of the Robot SDK.
 
 ---
+## [v0.2.2] - 2026
+
+### 📝 Notes
+- Support L2 device.
+- Added `GetDeviceInfo()` to expose the device type and serial number returned
+  by the handshake. `DeviceInfo::device_type` now uses the `DeviceType` enum;
+  its public values use M1/L2 product names without protocol-specific prefixes.
+- Added internal device-type capability adaptation. `SkWalk()` now rejects all
+  L2 variants with `Errc::UnsupportedDeviceOperation`.
+- `ReverseHeadTail()` now rejects the `DeviceType::M1_AIR` and
+  `DeviceType::M1F_AIR` variants
+  with `Errc::UnsupportedDeviceOperation`.
+- `Gait()` now rejects the L2F point-foot variants (`DeviceType::L2F` and
+  `DeviceType::L2F_ULTRA`) with
+  `Errc::UnsupportedDeviceOperation`.
+
+---
 ## [v0.2.1] - 2026
 
 ### 📝 Notes

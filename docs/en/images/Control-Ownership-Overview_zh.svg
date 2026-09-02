@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1010" viewBox="0 0 1600 1010" role="img" aria-labelledby="title desc">
+  <title id="title">SDK 与 APP 控制权总览</title>
+  <desc id="desc">对比 SDK 先连接与 APP 先连接两种场景下控制权的流转过程、关键回调与各方权限。</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#0f172a" flood-opacity=".10"/>
+    </filter>
+    <marker id="m-flow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#cbd5e1"/>
+    </marker>
+    <style>
+      text { font-family: Inter, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 40px; font-weight: 750; }
+      .subtitle { font-size: 20px; fill: #475569; }
+      .rule-title { font-size: 19px; font-weight: 700; }
+      .rule-body { font-size: 15.5px; fill: #475569; }
+      .panel-title { font-size: 25px; font-weight: 750; }
+      .panel-subtitle { font-size: 16px; fill: #64748b; }
+      .step-title { font-size: 17px; font-weight: 700; }
+      .step-body { font-size: 14.5px; fill: #475569; }
+      .step-no { font-size: 17px; font-weight: 800; fill: #fff; text-anchor: middle; dominant-baseline: middle; }
+      .badge { font-size: 14px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+      .chip { font-size: 16px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+      .note-title { font-size: 15.5px; font-weight: 700; fill: #b45309; }
+      .note-body { font-size: 14.5px; fill: #78350f; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1010" fill="#f8fafc"/>
+  <text x="80" y="74" class="title">SDK 与 APP 控制权总览</text>
+  <text x="80" y="112" class="subtitle">先到先得，APP 可接管，SDK 不可抢占；非控制方仍可监控状态并执行软件急停</text>
+
+  <!-- 核心规则卡片 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="140" width="453" height="96" rx="18" fill="#fff" stroke="#e2e8f0"/>
+    <rect x="573" y="140" width="453" height="96" rx="18" fill="#ecfdf5" stroke="#86efac"/>
+    <rect x="1066" y="140" width="454" height="96" rx="18" fill="#eff6ff" stroke="#93c5fd"/>
+  </g>
+  <circle cx="126" cy="188" r="20" fill="#334155"/><text x="126" y="188" class="step-no">1</text>
+  <text x="160" y="180" class="rule-title">先到先得</text>
+  <text x="160" y="206" class="rule-body">第一个完成握手的客户端获得控制权</text>
+  <circle cx="619" cy="188" r="20" fill="#16a34a"/><text x="619" y="188" class="step-no">2</text>
+  <text x="653" y="180" class="rule-title">APP 可接管 SDK</text>
+  <text x="653" y="206" class="rule-body">SDK 收到 OnControlLost() 后转为观察方</text>
+  <circle cx="1112" cy="188" r="20" fill="#2563eb"/><text x="1112" y="188" class="step-no">3</text>
+  <text x="1146" y="180" class="rule-title">SDK 不可抢占 APP</text>
+  <text x="1146" y="206" class="rule-body">等 APP 断开，收到 OnControlAvailable() 再申请</text>
+
+  <!-- 场景 A 面板 -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="272" width="720" height="640" rx="24" fill="#fff" stroke="#dbeafe" stroke-width="2"/>
+  </g>
+  <text x="112" y="318" class="panel-title">场景 A：SDK 先连接，APP 后接管</text>
+  <text x="112" y="346" class="panel-subtitle">控制方 → 观察方 → 重新申请，控制权最终回归 SDK</text>
+
+  <g stroke="#cbd5e1" stroke-width="2">
+    <line x1="140" y1="417" x2="140" y2="440" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="479" x2="140" y2="502" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="541" x2="140" y2="564" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="603" x2="140" y2="626" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="665" x2="140" y2="688" marker-end="url(#m-flow)"/>
+    <line x1="140" y1="727" x2="140" y2="750" marker-end="url(#m-flow)"/>
+  </g>
+
+  <circle cx="140" cy="400" r="17" fill="#16a34a"/><text x="140" y="400" class="step-no">1</text>
+  <text x="176" y="398" class="step-title">SDK 完成握手，获得控制权</text>
+  <text x="176" y="420" class="step-body">先到先得：开始发送运动、任务等普通控制命令</text>
+  <rect x="664" y="387" width="108" height="26" rx="13" fill="#dcfce7"/><text x="718" y="400" class="badge" fill="#15803d">控制方</text>
+
+  <circle cx="140" cy="462" r="17" fill="#2563eb"/><text x="140" y="462" class="step-no">2</text>
+  <text x="176" y="460" class="step-title">APP 连接并主动接管</text>
+  <text x="176" y="482" class="step-body">机器人将控制权转交给 APP</text>
+  <rect x="664" y="449" width="108" height="26" rx="13" fill="#dbeafe"/><text x="718" y="462" class="badge" fill="#1d4ed8">APP 控制方</text>
+
+  <circle cx="140" cy="524" r="17" fill="#dc2626"/><text x="140" y="524" class="step-no">3</text>
+  <text x="176" y="522" class="step-title">SDK 收到 OnControlLost()</text>
+  <text x="176" y="544" class="step-body">立即停止普通控制命令（软件急停除外）</text>
+  <rect x="664" y="511" width="108" height="26" rx="13" fill="#f1f5f9"/><text x="718" y="524" class="badge" fill="#475569">观察方</text>
+
+  <circle cx="140" cy="586" r="17" fill="#64748b"/><text x="140" y="586" class="step-no">4</text>
+  <text x="176" y="584" class="step-title">SDK 保持监听</text>
+  <text x="176" y="606" class="step-body">状态与故障数据接收不受影响，等待控制权可用</text>
+  <rect x="664" y="573" width="108" height="26" rx="13" fill="#f1f5f9"/><text x="718" y="586" class="badge" fill="#475569">观察方</text>
+
+  <circle cx="140" cy="648" r="17" fill="#64748b"/><text x="140" y="648" class="step-no">5</text>
+  <text x="176" y="646" class="step-title">APP 断开连接</text>
+  <text x="176" y="668" class="step-body">SDK 收到 OnControlAvailable()：控制权可申请</text>
+  <rect x="664" y="635" width="108" height="26" rx="13" fill="#f1f5f9"/><text x="718" y="648" class="badge" fill="#475569">观察方</text>
+
+  <circle cx="140" cy="710" r="17" fill="#2563eb"/><text x="140" y="710" class="step-no">6</text>
+  <text x="176" y="708" class="step-title">SDK 调用 TakeControl()</text>
+  <text x="176" y="730" class="step-body">向机器人申请当前可用的控制权</text>
+  <rect x="664" y="697" width="108" height="26" rx="13" fill="#e0f2fe"/><text x="718" y="710" class="badge" fill="#0369a1">申请中</text>
+
+  <circle cx="140" cy="772" r="17" fill="#16a34a"/><text x="140" y="772" class="step-no">7</text>
+  <text x="176" y="770" class="step-title">SDK 收到 OnTakeControlAck(error_code = 0)</text>
+  <text x="176" y="792" class="step-body">申请成功，恢复普通控制</text>
+  <rect x="664" y="759" width="108" height="26" rx="13" fill="#dcfce7"/><text x="718" y="772" class="badge" fill="#15803d">控制方</text>
+
+  <rect x="112" y="824" width="656" height="44" rx="12" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="440" y="846" class="chip" fill="#15803d">✔ 结果：经历一次接管后，控制权最终回归 SDK</text>
+
+  <!-- 场景 B 面板 -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="272" width="720" height="640" rx="24" fill="#fff" stroke="#dbeafe" stroke-width="2"/>
+  </g>
+  <text x="832" y="318" class="panel-title">场景 B：APP 先连接，SDK 后连接</text>
+  <text x="832" y="346" class="panel-subtitle">SDK 全程观察，待 APP 断开后申请接管</text>
+
+  <g stroke="#cbd5e1" stroke-width="2">
+    <line x1="860" y1="417" x2="860" y2="440" marker-end="url(#m-flow)"/>
+    <line x1="860" y1="479" x2="860" y2="502" marker-end="url(#m-flow)"/>
+    <line x1="860" y1="541" x2="860" y2="564" marker-end="url(#m-flow)"/>
+    <line x1="860" y1="603" x2="860" y2="626" marker-end="url(#m-flow)"/>
+    <line x1="860" y1="665" x2="860" y2="688" marker-end="url(#m-flow)"/>
+  </g>
+
+  <circle cx="860" cy="400" r="17" fill="#2563eb"/><text x="860" y="400" class="step-no">1</text>
+  <text x="896" y="398" class="step-title">APP 完成握手，获得控制权</text>
+  <text x="896" y="420" class="step-body">先到先得：APP 成为控制方</text>
+  <rect x="1384" y="387" width="108" height="26" rx="13" fill="#dbeafe"/><text x="1438" y="400" class="badge" fill="#1d4ed8">APP 控制方</text>
+
+  <circle cx="860" cy="462" r="17" fill="#64748b"/><text x="860" y="462" class="step-no">2</text>
+  <text x="896" y="460" class="step-title">SDK 完成握手</text>
+  <text x="896" y="482" class="step-body">已有控制方：SDK 自动成为观察方</text>
+  <rect x="1384" y="449" width="108" height="26" rx="13" fill="#f1f5f9"/><text x="1438" y="462" class="badge" fill="#475569">观察方</text>
+
+  <circle cx="860" cy="524" r="17" fill="#64748b"/><text x="860" y="524" class="step-no">3</text>
+  <text x="896" y="522" class="step-title">SDK 仅做状态监控</text>
+  <text x="896" y="544" class="step-body">不能发送普通控制命令，等待控制权可用通知</text>
+  <rect x="1384" y="511" width="108" height="26" rx="13" fill="#f1f5f9"/><text x="1438" y="524" class="badge" fill="#475569">观察方</text>
+
+  <circle cx="860" cy="586" r="17" fill="#2563eb"/><text x="860" y="586" class="step-no">4</text>
+  <text x="896" y="584" class="step-title">APP 断开连接</text>
+  <text x="896" y="606" class="step-body">SDK 收到 OnControlAvailable()：控制权可申请</text>
+  <rect x="1384" y="573" width="108" height="26" rx="13" fill="#f1f5f9"/><text x="1438" y="586" class="badge" fill="#475569">观察方</text>
+
+  <circle cx="860" cy="648" r="17" fill="#2563eb"/><text x="860" y="648" class="step-no">5</text>
+  <text x="896" y="646" class="step-title">SDK 调用 TakeControl()</text>
+  <text x="896" y="668" class="step-body">向机器人申请控制权</text>
+  <rect x="1384" y="635" width="108" height="26" rx="13" fill="#e0f2fe"/><text x="1438" y="648" class="badge" fill="#0369a1">申请中</text>
+
+  <circle cx="860" cy="710" r="17" fill="#16a34a"/><text x="860" y="710" class="step-no">6</text>
+  <text x="896" y="708" class="step-title">SDK 收到 OnTakeControlAck(error_code = 0)</text>
+  <text x="896" y="730" class="step-body">申请成功，SDK 成为新的控制方</text>
+  <rect x="1384" y="697" width="108" height="26" rx="13" fill="#dcfce7"/><text x="1438" y="710" class="badge" fill="#15803d">控制方</text>
+
+  <rect x="832" y="760" width="656" height="120" rx="12" fill="#fffbeb" stroke="#f59e0b"/>
+  <text x="856" y="790" class="note-title">实现注意（当前网关行为）</text>
+  <text x="856" y="814" class="note-body">若 APP 调用 ReleaseControl() 后仍保持连接，SDK 的 TakeControl() 仍可能失败。</text>
+  <text x="856" y="838" class="note-body">建议等待 APP 断开并收到 OnControlAvailable() 后再申请。</text>
+
+  <!-- 底部权限条 -->
+  <rect x="240" y="936" width="320" height="48" rx="24" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="400" y="960" class="chip" fill="#15803d">普通控制命令：仅控制方</text>
+  <rect x="600" y="936" width="420" height="48" rx="24" fill="#fff" stroke="#e2e8f0"/>
+  <text x="810" y="960" class="chip" fill="#475569">状态 / 故障数据：控制方 + 观察方</text>
+  <rect x="1060" y="936" width="320" height="48" rx="24" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="1220" y="960" class="chip" fill="#c2410c">软件急停 / 恢复：双方均可</text>
+</svg>

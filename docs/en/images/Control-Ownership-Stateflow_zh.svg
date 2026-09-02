@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+  <title id="title">SDK 侧控制权状态机</title>
+  <desc id="desc">SDK 在观察方、申请中、控制方三个状态之间的迁移条件与处理要点。</desc>
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="7" flood-color="#0f172a" flood-opacity=".09"/>
+    </filter>
+    <marker id="m-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <marker id="m-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="m-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="m-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+    <marker id="m-gray" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <style>
+      text { font-family: Inter, "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+      .title { font-size: 32px; font-weight: 750; }
+      .subtitle { font-size: 17px; fill: #475569; }
+      .state-title { font-size: 19px; font-weight: 750; }
+      .state-body { font-size: 14px; fill: #475569; }
+      .edge { font-size: 14px; }
+      .decision { font-size: 15px; text-anchor: middle; }
+      .footer { font-size: 14.5px; fill: #64748b; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="780" fill="#f8fafc"/>
+  <text x="70" y="56" class="title">SDK 侧控制权状态机</text>
+  <text x="70" y="88" class="subtitle">三个状态、六条迁移：所有迁移都由机器人侧的通知或 ACK 驱动</text>
+
+  <!-- 起点与判定 -->
+  <circle cx="600" cy="112" r="9" fill="#0f172a"/>
+  <line x1="600" y1="121" x2="600" y2="136" stroke="#64748b" stroke-width="2" marker-end="url(#m-slate)"/>
+  <g filter="url(#shadow)">
+    <polygon points="600,140 760,215 600,290 440,215" fill="#fff" stroke="#94a3b8" stroke-width="2"/>
+  </g>
+  <text x="600" y="208" class="decision">握手完成时，</text>
+  <text x="600" y="230" class="decision" font-weight="700">是否已有控制方？</text>
+
+  <!-- 状态框 -->
+  <g filter="url(#shadow)">
+    <rect x="90" y="350" width="320" height="132" rx="16" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+    <rect x="790" y="350" width="320" height="132" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+    <rect x="440" y="580" width="320" height="118" rx="16" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  </g>
+
+  <text x="115" y="388" class="state-title" fill="#334155">观察方（Observer）</text>
+  <text x="115" y="415" class="state-body">✓ 接收状态与故障数据</text>
+  <text x="115" y="437" class="state-body">✓ 发送软件急停 / 恢复</text>
+  <text x="115" y="459" class="state-body">✕ 发送普通控制命令</text>
+
+  <text x="815" y="388" class="state-title" fill="#15803d">控制方（Controller）</text>
+  <text x="815" y="415" class="state-body">✓ 发送普通控制命令</text>
+  <text x="815" y="437" class="state-body">✓ 接收状态与故障数据</text>
+  <text x="815" y="459" class="state-body">持续监听 OnControlLost()</text>
+
+  <text x="465" y="616" class="state-title" fill="#1d4ed8">申请中（Requesting）</text>
+  <text x="465" y="643" class="state-body">已发送 TakeControl()，等待 ACK</text>
+  <text x="465" y="665" class="state-body">此期间仍按观察方处理</text>
+
+  <!-- 迁移 -->
+  <path d="M 440 215 C 360 245 285 295 253 348" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#m-slate)"/>
+  <text x="292" y="264" class="edge" fill="#64748b" text-anchor="middle">已有控制方</text>
+
+  <path d="M 760 215 C 840 245 915 295 947 348" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#m-green)"/>
+  <text x="920" y="264" class="edge" fill="#15803d" text-anchor="middle">无控制方（先到先得）</text>
+
+  <path d="M 250 482 C 250 560 330 630 436 639" fill="none" stroke="#2563eb" stroke-width="2" marker-end="url(#m-blue)"/>
+  <text x="108" y="562" class="edge" fill="#1d4ed8">收到 OnControlAvailable()</text>
+  <text x="108" y="582" class="edge" fill="#1d4ed8">后调用 TakeControl()</text>
+
+  <path d="M 760 639 C 870 630 950 560 950 486" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#m-green)"/>
+  <text x="985" y="560" class="edge" fill="#15803d">OnTakeControlAck()</text>
+  <text x="985" y="582" class="edge" fill="#15803d">error_code = 0</text>
+
+  <path d="M 470 580 C 400 545 330 518 268 484" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#m-gray)"/>
+  <text x="352" y="512" class="edge" fill="#64748b" text-anchor="middle">error_code ≠ 0：申请失败</text>
+
+  <line x1="790" y1="398" x2="414" y2="398" stroke="#dc2626" stroke-width="2" marker-end="url(#m-red)"/>
+  <text x="600" y="380" class="edge" fill="#dc2626" text-anchor="middle">OnControlLost()：被 APP 接管，立即停止普通控制</text>
+
+  <line x1="790" y1="448" x2="414" y2="448" stroke="#64748b" stroke-width="2" marker-end="url(#m-slate)"/>
+  <text x="600" y="470" class="edge" fill="#64748b" text-anchor="middle">主动 ReleaseControl()，且 OnReleaseControlAck(error_code = 0)</text>
+
+  <text x="70" y="745" class="footer">提示：TakeControl() / ReleaseControl() 的返回值仅表示命令是否成功发出，最终结果以 OnTakeControlAck() / OnReleaseControlAck() 为准。</text>
+</svg>
