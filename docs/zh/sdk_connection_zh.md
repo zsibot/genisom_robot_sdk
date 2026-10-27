@@ -346,5 +346,6 @@ config.connect_timeout_ms = 5000;     // 5秒连接超时
 
 - [SDKClient API 文档](sdk_client_api_zh.md) - 客户端接口详细说明
 - [充电与离桩任务使用说明](sdk_recharge_task_zh.md) - `StartRechargeTask`、`StopRechargeTask`、`StartUnDockTask`、`StopUnDockTask` 的使用说明
+- [回充、退桩与基站标定使用条件和故障说明](sdk_recharge_undock_calibration_conditions_zh.md) - 回充、退桩和基站标定的使用条件及故障处理
 - [状态定义文档](sdk_state_zh.md) - 连接状态和运动状态详解
 - [类型定义文档](sdk_type_zh.md) - 数据类型和结构体定义

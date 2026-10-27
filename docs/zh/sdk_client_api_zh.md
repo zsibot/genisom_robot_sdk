@@ -3,7 +3,7 @@
 ## 概述
 
 `SDKClient` 是机器人 SDK 的核心类，负责连接管理与全部命令下发，
-覆盖运动姿态控制、速度控制、灯光、数据上报配置、控制权管理、相机、回充/离桩任务、外设电源与 LED 灯效等功能。
+覆盖运动姿态控制、速度控制、灯光、数据上报配置、充电桩配对、控制权管理、相机、回充/离桩任务、外设电源与 LED 灯效等功能。
 
 - 命名空间：`robot_sdk`，头文件：`robot_sdk/sdk_client.hpp`
 - 各接口的机型支持情况见 [API 机型能力表](sdk_api_capability_zh.md)
@@ -70,10 +70,11 @@ SDK 扩展错误码：
 | [连接管理](#连接管理) | `Connect`、`Disconnect`、`IsConnected`、`GetConnectionState` |
 | [回调设置](#回调设置) | `SetControlCallback`、`SetDataCallback` |
 | [安全控制](#安全控制) | `SoftEmergencyStop` |
-| [姿态控制](#姿态控制) | `StandUp`、`BalanceStandUp`、`LieDown`、`Stair`、`Crawl`、`CrawlWalk`、`Climb`、`Slim`、`Gait`、`DSB`、`PosControl`、`SkWalk`、`Sand`、`ReverseHeadTail`、`Locked` |
+| [姿态控制](#姿态控制) | `StandUp`、`BalanceStandUp`、`LieDown`、`Stair`、`Crawl`、`CrawlWalk`、`Climb`、`Slim`、`Gait`、`Walk`、`PosControl`、`SkWalk`、`Sand`、`ReverseHeadTail`、`Locked` |
 | [运动控制](#运动控制) | `Move`、`PosMove`、`Turn`、`ControlHead`、`HighLowStance`、`SetSpeed` |
 | [灯光与感知开关](#灯光与感知开关) | `FrontLight`、`BackLight`、`AutoModeLight`、`ObstacleAvoidance` |
 | [数据上报配置](#数据上报配置) | `SetImuConfig`、`SetLuxConfig`、`SetMcConfig`、`SetSpeedReportConfig`、`SetJointStateConfig` |
+| [充电桩配对](#充电桩配对) | `SetDockScanConfig`、`ConnectDock`、`DisconnectDock`、`GetDockInfo` |
 | [控制权管理](#控制权管理) | `TakeControl`、`ReleaseControl` |
 | [相机](#相机) | `UpdateCameraBitrate` |
 | [任务与状态切换](#任务与状态切换) | `StartRechargeTask`、`StopRechargeTask`、`StartUnDockTask`、`StopUnDockTask`、`SwitchRemoteState`、`SwitchIdleState` |
@@ -204,6 +205,8 @@ void SetDataCallback(std::shared_ptr<IDataCallback> data_callback)
 注册机器人主动上报数据的回调（传感器、状态、故障、控制权事件等），接口清单见 [回调文档](sdk_callback_zh.md)。
 
 > 建议在 `Connect()` 之前完成注册，避免遗漏连接初期的上报数据。
+>
+> 传入 `nullptr` 表示取消相应的用户回调。
 
 ---
 
@@ -244,7 +247,7 @@ std::error_code CrawlWalk(int timeout_ms = 0, WriteHandler handler = ...);      
 std::error_code Climb(int timeout_ms = 0, WriteHandler handler = ...);          // 爬高台
 std::error_code Slim(int timeout_ms = 0, WriteHandler handler = ...);           // 瘦身过窄道
 std::error_code Gait(int timeout_ms = 0, WriteHandler handler = ...);           // 步态
-std::error_code DSB(int timeout_ms = 0, WriteHandler handler = ...);            // 过挡鼠板
+std::error_code Walk(int timeout_ms = 0, WriteHandler handler = ...);           // 行走姿态
 std::error_code PosControl(int timeout_ms = 0, WriteHandler handler = ...);     // 切入位控姿态
 std::error_code SkWalk(int timeout_ms = 0, WriteHandler handler = ...);         // 同膝行走
 std::error_code Sand(int timeout_ms = 0, WriteHandler handler = ...);           // 沙地姿态
@@ -255,9 +258,10 @@ std::error_code Locked(int timeout_ms = 0, WriteHandler handler = ...);         
 要点说明：
 
 - **StandUp**：站立过程中 `RobotState::motion_status` 为 `MOTION_STATUS_STAND_UP`，完成后变为 `MOTION_STATUS_WALK`。
+- **Walk**：底层下发 `action/walk`，切换成功后 `RobotState::motion_status` 为 `MOTION_STATUS_WALK`。
 - **Locked**：各关节保持当前位置不动；下发站立/卧倒/匍匐等其他姿态命令会自动解锁。
 - **Sand**：底层协议动作为 `action/snow`，设备上报的 `snow` 状态在 SDK 中解析为 `MOTION_STATUS_SAND`。
-- **机型限制**：`Slim`、`DSB`、`SkWalk`、`Sand` 不支持 L2 系列；`ReverseHeadTail` 不支持 L2 系列及 `DeviceType::M1_AIR`、`DeviceType::M1F_AIR`；`Gait` 不支持 L2F 点足系列（`DeviceType::L2F`、`DeviceType::L2F_ULTRA`）。
+- **机型限制**：`Slim`、`SkWalk`、`Sand` 不支持 L2 系列；`ReverseHeadTail` 不支持 L2 系列及 `DeviceType::M1_AIR`、`DeviceType::M1F_AIR`；`Gait` 不支持 L2F 点足系列（`DeviceType::L2F`、`DeviceType::L2F_ULTRA`）。
   在不支持的机型上调用时 SDK 不会发送命令，直接返回 `robot_sdk::Errc::UnsupportedDeviceOperation`。完整对照见 [API 机型能力表](sdk_api_capability_zh.md)。
 
 ```cpp
@@ -296,6 +300,33 @@ std::error_code Move(float left_right, float forward_back, float yaw,
 
 ---
 
+### MoveVelocity — 直接速度控制
+
+```cpp
+std::error_code MoveVelocity(float x, float y, float yaw,
+                             int timeout_ms = 0,
+                             WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+以物理单位发送机体坐标系速度，适合上层控制器直接输出速度的场景。
+它不同于 `Move()` 的归一化摇杆输入：`MoveVelocity()` 不接受 `[-1, 1]` 比例。
+**物理单位不表示绕过限速：** 会按当前 `SetSpeed()` 速度等级，对 `x/y/yaw`
+执行与 [SpeedLevel 限速表](sdk_type_zh.md#speedlevel--速度等级)一致的饱和裁剪；超出该等级允许范围的请求不会原样下发。
+同时保留移动超时保护。持续运动需要周期发送（建议 10–20 Hz）。
+
+**参数：**
+
+| 参数名 | 类型 | 单位 | 说明 |
+|:--|:--|:--|:--|
+| `x` | `float` | m/s | 机体坐标系纵向速度；正数前进 |
+| `y` | `float` | m/s | 机体坐标系横向速度；正数左移 |
+| `yaw` | `float` | rad/s | 偏航角速度；按右手定则为正 |
+
+**返回值：** 非有限值（`NaN`/`±Inf`）返回 `std::errc::invalid_argument`；其余见[错误码机制](#3-错误码机制)。
+**应答：** 无对应应答回调，发送结果看 `WriteHandler`。
+
+---
+
 ### PosMove — 位控移动
 
 ```cpp
@@ -320,7 +351,7 @@ std::error_code Turn(int direction, int timeout_ms = 0,
                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-原地模式下控制机体左右翻滚。
+平衡站立姿态下控制机体左右翻滚。
 
 **参数：**
 
@@ -339,7 +370,7 @@ std::error_code ControlHead(float left_right, float up_down, int timeout_ms = 0,
                             WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-原地模式下控制机器人"左右探头"与"抬头/低头"。
+平衡站立姿态下控制机器人"左右探头"与"抬头/低头"。
 
 **参数：**
 
@@ -359,7 +390,7 @@ std::error_code HighLowStance(int stance, int timeout_ms = 0,
                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-原地模式下调整身体高低站姿。
+平衡站立姿态下调整身体高低站姿。
 
 **参数：**
 
@@ -437,6 +468,81 @@ std::error_code SetJointStateConfig(bool on, int timeout_ms = 0, WriteHandler ha
 
 ---
 
+## 充电桩配对
+
+### SetDockScanConfig — 开启或关闭充电桩扫描
+
+```cpp
+std::error_code SetDockScanConfig(
+    bool on, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+开启或关闭机器人本体的充电桩扫描功能，对应协议号 `1008（target=302）`。
+
+| 参数名 | 类型 | 说明 |
+|:--|:--|:--|
+| `on` | `bool` | `true`：开启扫描；`false`：关闭扫描 |
+
+**结果与回调：**
+
+- `OnDockScanConfig(bool on)`：确认扫描开关设置结果。
+- `OnDockScanResult(const DockScanResult& result)`：被动接收扫描结果，对应协议号 `1018`；扫描期间可能多次触发。
+- 建议按 `DockScanDevice::address` 更新设备列表，并在选定充电桩后关闭扫描。
+
+### ConnectDock — 连接充电桩
+
+```cpp
+std::error_code ConnectDock(
+    const DockConnectConfig& config, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+连接指定充电桩，对应协议号 `1022`。
+
+```cpp
+struct DockConnectConfig {
+  std::string address;
+};
+```
+
+| 参数名 | 类型 | 说明 |
+|:--|:--|:--|
+| `config.address` | `std::string` | 扫描结果中的充电桩地址；不能为空 |
+
+**结果与回调：**
+
+1. `OnDockConnectionAck(const DockConnectionAck& ack)`：通过 `ack.accepted` 判断连接请求是否被机器人接受。
+2. `OnDockConnectionResult(const DockConnectionResult& result)`：被动接收连接终态，对应协议号 `1024`，通过 `result.success` 判断最终是否成功。
+
+> `ConnectDock()` 的返回值和 `WriteHandler` 只表示发送结果；`ack.accepted == true` 也不代表已经连接成功，最终结果必须以 `OnDockConnectionResult()` 为准。
+
+### DisconnectDock — 断开充电桩
+
+```cpp
+std::error_code DisconnectDock(
+    int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+断开当前连接的充电桩，对应协议号 `1022`。请求确认由 `OnDockConnectionAck()` 返回，最终结果由 `OnDockConnectionResult()` 被动推送。
+
+同一时间只应执行一个连接或断开操作，并等待终态结果后再发起下一次操作。
+
+### GetDockInfo — 查询充电桩信息
+
+```cpp
+std::error_code GetDockInfo(
+    int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+主动查询当前充电桩的信息及连接、接触、充电和补光灯状态，对应协议号 `1023`。查询结果通过 `OnDockInfo(const DockInfo& info)` 返回；充电桩状态变化时也可能收到该回调。
+
+连接成功或断开完成后，可调用本接口并检查 `DockInfo::dock_connected`，确认当前连接状态。完整配对流程和按键示例见 [充电桩配对接口使用指南](sdk_dock_pairing_zh.md)。
+
+---
+
 ## 控制权管理
 
 ### TakeControl — 申请控制权
@@ -498,7 +604,10 @@ std::error_code SwitchIdleState(int timeout_ms = 0, WriteHandler handler = ...);
 
 - 任务类接口（回充/离桩）的"已进入/已退出"通过 `OnStartRechargeTask()` 等应答确认；
   **任务的过程状态与最终结果**通过 `OnTaskStateData()`（`TaskStateInfo`）上报。
-  完整的状态流转与使用建议见 [充电与离桩任务使用说明](sdk_recharge_task_zh.md)。
+  其中 `phase` 是可能为空且可扩展的任务子阶段字符串，仅用于展示进度；终态以
+  `task_status` 为准。
+  完整的状态流转与使用建议见 [充电与离桩任务使用说明](sdk_recharge_task_zh.md)，
+  失败时的 `error_code` 见 [回充与出桩任务错误码](sdk_recharge_errorcode_zh.md)。
 - `SwitchRemoteState` / `SwitchIdleState` 切换的是 `MachineStatus`（`REMOTE` ↔ `IDLE`），
   应答为 `OnSwitchRemote()` / `OnSwitchIdle()`。
 
@@ -566,7 +675,7 @@ client.SetLedCommand(cmd);
 const std::string& Version() const
 ```
 
-返回 SDK 自身的版本号字符串（如 `"1.2.0"`），任何时候可用。
+返回 SDK 自身的完整交付版本号字符串（如 `"1.2.0"`、`"1.2.0-rc.1"` 或 `"1.2.0-r1"`），任何时候可用。
 
 ### ProtocolVersion — 协议版本号
 
@@ -651,4 +760,6 @@ int main() {
 - [SDK 错误码文档](sdk_error_zh.md) — 错误码定义与判断方法
 - [控制权说明](sdk_control_ownership_zh.md) — SDK 与 APP 控制权归属
 - [API 机型能力表](sdk_api_capability_zh.md) — 各机型接口支持情况
-- [充电与离桩任务使用说明](sdk_recharge_task_zh.md) — 任务接口详细使用说明
+- [回充与退桩任务使用说明](sdk_recharge_task_zh.md) — 任务接口详细使用说明
+- [充电桩配对接口使用指南](sdk_dock_pairing_zh.md) — 扫描、连接、查询与断开流程
+- [回充、退桩与基站标定使用条件和故障说明](sdk_recharge_undock_calibration_conditions_zh.md) - 回充、退桩和基站标定的使用条件及故障处理

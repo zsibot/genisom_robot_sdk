@@ -178,6 +178,25 @@ Relevant task states:
 - `TaskStatus::FAILURE`
 - `TaskStatus::STOPPED`
 
+### `phase` — Task Subphase
+
+Currently defined recharge phases:
+
+| `phase` | Meaning |
+|:--|:--|
+| `recharge_preparing` | Preparing to recharge |
+| `recharge_docking` | Aligning with and entering the dock |
+| `recharge_charging` | Charging |
+| `recharge_completed` | Recharge completed; holding on the dock at full charge |
+
+Currently defined undock phases:
+
+| `phase` | Meaning |
+|:--|:--|
+| `undock_preparing` | Preparing to undock |
+| `undock_undocking` | Undocking in progress |
+| `undock_completed` | Undocking completed |
+
 ---
 
 ## Using MachineStatus as an Auxiliary Signal
@@ -263,8 +282,10 @@ Recommended evaluation order:
 1. Check whether the command was sent successfully
 2. Check whether `OnStartRechargeTask()` was received
 3. Check whether task updates for `TaskType::RECHARGING` were received
-4. If the task failed, inspect `error_code`
-5. If the recharge task needs to be ended, call `StopRechargeTask()` and wait for `STOPPED`
+4. Read `phase` to display preparation, docking, charging, or full-charge-hold progress;
+   allow empty and unknown values
+5. If the task failed, inspect `error_code`
+6. If the recharge task needs to be ended, call `StopRechargeTask()` and wait for `STOPPED`
 
 ---
 
@@ -333,9 +354,11 @@ Recommended evaluation order:
 1. Check whether the command was sent successfully
 2. Check whether `OnStartUnDockTask()` was received
 3. Check whether task updates for `TaskType::UNDOCK` were received
-4. If the final state is `SUCCESS`, the undock task completed successfully
-5. If the final state is `FAILURE`, inspect `error_code`
-6. If the task needs to be stopped midway, call `StopUnDockTask()` and wait for `STOPPED`
+4. Read `phase` to display preparation, undocking, or completion progress;
+   allow empty and unknown values
+5. If the final state is `SUCCESS`, the undock task completed successfully
+6. If the final state is `FAILURE`, inspect `error_code`
+7. If the task needs to be stopped midway, call `StopUnDockTask()` and wait for `STOPPED`
 
 ---
 
@@ -446,12 +469,14 @@ class DataCallback : public IDataCallback {
     if (info.task_type == TaskType::RECHARGING) {
       std::cout << "[TASK][RECHARGING] status="
                 << static_cast<int>(info.task_status)
+                << ", phase=" << info.phase
                 << ", error_code=" << info.error_code << std::endl;
     }
 
     if (info.task_type == TaskType::UNDOCK) {
       std::cout << "[TASK][UNDOCK] status="
                 << static_cast<int>(info.task_status)
+                << ", phase=" << info.phase
                 << ", error_code=" << info.error_code << std::endl;
     }
   }
@@ -521,6 +546,9 @@ only means that the robot acknowledged the corresponding control command. It **m
 
 The final result should be determined by `OnTaskStateData()`.
 
+Use `task_status` for lifecycle and final-result decisions. `phase` only refines
+the current execution stage; an empty or unknown `phase` is not a task failure.
+
 ### 2. Inspect `error_code` first when the task fails
 
 When the task state becomes `FAILURE`, you should inspect:
@@ -528,6 +556,8 @@ When the task state becomes `FAILURE`, you should inspect:
 - `TaskStateInfo.error_code`
 
 to determine the failure reason.
+For the complete mapping of recharge codes (`0x11000`–`0x11FFF`) and undock codes
+(`0x16000`–`0x16FFF`), see [Recharge and Undock Task Error Codes](sdk_recharge_errorcode_en.md).
 
 ### 3. Use `MachineStatus` only as an auxiliary signal
 
@@ -576,4 +606,6 @@ If it is stopped manually midway, it enters:
 - [SDKClient API Documentation](sdk_client_api_en.md) - Detailed client interface reference
 - [Callback Reference](sdk_callback_en.md) - Control and data callback descriptions
 - [Type Definitions](sdk_type_en.md) - `TaskType`, `TaskStatus`, `TaskStateInfo`, and related types
+- [Recharge and Undock Task Error Codes](sdk_recharge_errorcode_en.md) - Task failure reasons reported by `OnTaskStateData()`
 - [Connection Configuration Documentation](sdk_connection_en.md) - Connection and basic usage information
+- [Recharge, Undock, and Dock Calibration Conditions and Troubleshooting](sdk_recharge_undock_calibration_conditions_en.md) - Task prerequisites, execution procedures, and common troubleshooting guidance

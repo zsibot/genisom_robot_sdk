@@ -113,32 +113,70 @@ std::cout << DeviceTypeName(info.device_type) << std::endl;
 ### FaultCode
 
 ```cpp
-enum class FaultCode
+enum class FaultCode : int
 ```
 
-Fault codes that may occur in the robot system. Values start at `10` (except `Unknown`) and increase consecutively.
+A strongly typed fault code reported by the robot diagnostic system, with `int` as its underlying type. The SDK converts the protocol `error_code` directly to this type instead of mapping the fault name. Currently defined codes are listed below:
 
-| Value | Integer | Description |
-|:--|:--:|:--|
-| `Unknown` | 0 | Unknown fault |
-| `ActuatorDisabled` | 10 | Actuator disabled |
-| `ActuatorEncoderError` | 11 | Actuator encoder error |
-| `ActuatorOffline` | 12 | Actuator offline |
-| `ActuatorOverVoltage` | 13 | Actuator overvoltage |
-| `ActuatorOverheat` | 14 | Actuator overheating |
-| `ActuatorTempWarn` | 15 | Actuator temperature warning |
-| `ActuatorTimeout` | 16 | Actuator control timeout |
-| `ActuatorUndervolt` | 17 | Actuator undervoltage |
-| `PowerControlOverTemp` | 18 | Battery overheat warning |
-| `PowerControlPowerEmpty` | 19 | Battery below 10% |
-| `PowerControlPowerLow` | 20 | Battery below 20% (above 10%) |
-| `PowerControlOffline` | 21 | Power control board MCU connection failed |
-| `CANBroken` | 22 | CAN communication error |
-| `RobotRemoteKeepAliveFailure` | 23 | Remote control disconnected |
-| `SystemClockSanityError` | 24 | System time jump detected |
-| `SystemRobotStatusError` | 25 | Robot status abnormal |
-| `IMUConnectError` | 26 | IMU connection error |
-| `IMUDataNotUpdated` | 27 | IMU data not updating |
+| Code | `FaultCode` value | Protocol fault name | Default level | Description |
+|:--:|:--|:--|:--:|:--|
+| 1001 | `SystemClockSanityError` | System/ClockSanityError | Fatal | System clock anomaly caused by a detected time jump |
+| 1002 | `SystemKeyNodeLifecycleError` | System/KeyNodeLifecycleError | Fatal | A key node is unreachable or has an invalid lifecycle state |
+| 1003 | `SystemOptNodeLifecycleError` | System/OptNodeLifecycleError | Warning | An optional node is unreachable or has an invalid lifecycle state |
+| 1004 | `MotionStateFallError` | MotionState/FallError | Warning | Robot fall detected |
+| 1101 | `IMUConnectError` | IMU/ConnectError | Fatal | IMU connection failure |
+| 1102 | `IMUDataNotUpdated` | IMU/DataNotUpdated | Fatal | IMU data has not been updated within the allowed interval |
+| 1103 | `IMUCrcError` | IMU/ImuCrcError | Fatal | IMU data CRC validation failure |
+| 1201 | `ActuatorOffline` | Actuator/Offline | Fatal | Actuator offline |
+| 1202 | `ActuatorDisabled` | Actuator/Disabled | Fatal | Actuator disabled |
+| 1203 | `ActuatorTimeout` | Actuator/Timeout | Fatal | Actuator command reporting timeout |
+| 1204 | `ActuatorEncoderError` | Actuator/EncoderError | Fatal | Actuator encoder failure |
+| 1205 | `ActuatorOverVoltage` | Actuator/OverVoltage | Fatal | Actuator overvoltage |
+| 1206 | `ActuatorUndervolt` | Actuator/Undervolt | Fatal | Actuator undervoltage |
+| 1207 | `ActuatorOverCurrent` | Actuator/OverCurrent | Fatal | Actuator overcurrent |
+| 1208 | `ActuatorOverSpeed` | Actuator/OverSpeed | Fatal | Actuator overspeed |
+| 1209 | `ActuatorOverheat` | Actuator/Overheat | Fatal | Actuator-side overheat report |
+| 1210 | `ActuatorOverTempWarn` | Actuator/OverTempWarn | Warning | Actuator temperature warning detected by the driver |
+| 1211 | `ActuatorOverTempProtect` | Actuator/OverTempProtect | Fatal | Actuator overtemperature protection detected by the driver |
+| 1212 | `ActuatorDCOverVoltage` | Actuator/DCOverVoltage | Error | DC bus overvoltage caused by high-speed motion |
+| 1301 | `PowerControlOffline` | PowerControl/Offline | Fatal | Power control board offline |
+| 1302 | `PowerControlPowerLow` | PowerControl/PowerLow | Warning | Battery charge below 20% but not below 10% |
+| 1303 | `PowerControlPowerEmpty` | PowerControl/PowerEmpty | Fatal | Battery charge below 10% |
+| 1401 | `CANBroken` | CAN/Broken | Fatal | CAN bus communication failure |
+| 1501 | `SystemMcBoardDiskIoUsageWarn` | System/McBoardDiskIoUsageWarn | Warning | Main controller disk I/O usage reached the warning level |
+| 1502 | `SystemMcBoardDiskIoUsageError` | System/McBoardDiskIoUsageError | Error | Main controller disk I/O is critically busy |
+| 1503 | `SystemMcBoardDiskIoDataUnavailable` | System/McBoardDiskIoDataUnavailable | Error | Main controller disk I/O data is unavailable |
+| 1504 | `SystemMcBoardMemoryUsageWarn` | System/McBoardMemoryUsageWarn | Warning | Main controller memory usage reached the warning level |
+| 1505 | `SystemMcBoardMemoryUsageError` | System/McBoardMemoryUsageError | Error | Main controller available memory is critically low |
+| 1506 | `SystemMcBoardMemoryDataUnavailable` | System/McBoardMemoryDataUnavailable | Error | Main controller memory data is unavailable |
+| 1507 | `SystemMcBoardCpuUsageWarn` | System/McBoardCpuUsageWarn | Warning | Main controller overall CPU usage is high |
+| 1508 | `SystemMcBoardCpuUsageError` | System/McBoardCpuUsageError | Error | Main controller overall CPU usage is critically high |
+| 1509 | `SystemMcBoardCpuUsageDataUnavailable` | System/McBoardCpuUsageDataUnavailable | Error | Main controller overall CPU usage data is unavailable |
+| 1510 | `SystemMcBoardCpuCoreUsageDataUnavailable` | System/McBoardCpuCoreUsageDataUnavailable | Error | Main controller per-core CPU usage data is unavailable |
+| 1511 | `SystemMcBoardCpuTemperatureWarn` | System/McBoardCpuTemperatureWarn | Warning | Main controller CPU temperature is high |
+| 1512 | `SystemMcBoardCpuTemperatureError` | System/McBoardCpuTemperatureError | Error | Main controller CPU temperature is critically high |
+| 1513 | `SystemMcBoardCpuTemperatureDataUnavailable` | System/McBoardCpuTemperatureDataUnavailable | Error | Main controller CPU temperature data is unavailable |
+| 1514 | `SystemMcBoardCpuFrequencyLowWarn` | System/McBoardCpuFrequencyLowWarn | Warning | Main controller CPU frequency is low under load |
+| 1515 | `SystemMcBoardCpuFrequencyLowError` | System/McBoardCpuFrequencyLowError | Error | Main controller CPU is severely throttled under load |
+| 1516 | `SystemMcBoardCpuFrequencyDataUnavailable` | System/McBoardCpuFrequencyDataUnavailable | Error | Main controller CPU frequency data is unavailable |
+| 1517 | `SystemAlgBoardDiskIoUsageWarn` | System/AlgBoardDiskIoUsageWarn | Warning | Compute board disk I/O usage reached the warning level |
+| 1518 | `SystemAlgBoardDiskIoUsageError` | System/AlgBoardDiskIoUsageError | Error | Compute board disk I/O is critically busy |
+| 1519 | `SystemAlgBoardDiskIoDataUnavailable` | System/AlgBoardDiskIoDataUnavailable | Error | Compute board disk I/O data is unavailable |
+| 1520 | `SystemAlgBoardMemoryUsageWarn` | System/AlgBoardMemoryUsageWarn | Warning | Compute board memory usage reached the warning level |
+| 1521 | `SystemAlgBoardMemoryUsageError` | System/AlgBoardMemoryUsageError | Error | Compute board available memory is critically low |
+| 1522 | `SystemAlgBoardMemoryDataUnavailable` | System/AlgBoardMemoryDataUnavailable | Error | Compute board memory data is unavailable |
+| 1523 | `SystemAlgBoardCpuUsageWarn` | System/AlgBoardCpuUsageWarn | Warning | Compute board overall CPU usage is high |
+| 1524 | `SystemAlgBoardCpuUsageError` | System/AlgBoardCpuUsageError | Error | Compute board overall CPU usage is critically high |
+| 1525 | `SystemAlgBoardCpuUsageDataUnavailable` | System/AlgBoardCpuUsageDataUnavailable | Error | Compute board overall CPU usage data is unavailable |
+| 1526 | `SystemAlgBoardCpuCoreUsageDataUnavailable` | System/AlgBoardCpuCoreUsageDataUnavailable | Error | Compute board per-core CPU usage data is unavailable |
+| 1527 | `SystemAlgBoardCpuTemperatureWarn` | System/AlgBoardCpuTemperatureWarn | Warning | Compute board CPU temperature is high |
+| 1528 | `SystemAlgBoardCpuTemperatureError` | System/AlgBoardCpuTemperatureError | Error | Compute board CPU temperature is critically high |
+| 1529 | `SystemAlgBoardCpuTemperatureDataUnavailable` | System/AlgBoardCpuTemperatureDataUnavailable | Error | Compute board CPU temperature data is unavailable |
+| 1530 | `SystemAlgBoardCpuFrequencyLowWarn` | System/AlgBoardCpuFrequencyLowWarn | Warning | Compute board CPU frequency is low under load |
+| 1531 | `SystemAlgBoardCpuFrequencyLowError` | System/AlgBoardCpuFrequencyLowError | Error | Compute board CPU is severely throttled under load |
+| 1532 | `SystemAlgBoardCpuFrequencyDataUnavailable` | System/AlgBoardCpuFrequencyDataUnavailable | Error | Compute board CPU frequency data is unavailable |
+
+Code `1302` (PowerControl/PowerLow) may be disabled by the robot configuration.
 
 ---
 
@@ -163,15 +201,16 @@ Fault severity, from most to least severe: `FatalError` > `Error` > `Warn`.
 
 ```cpp
 struct FaultData {
-  FaultCode code;        // Fault code
+  FaultCode code;        // Fault code reported directly by the robot
   FaultLevel level;      // Fault level
   std::string message;   // Fault description text
 };
 using FaultDatas = std::vector<FaultData>;
 ```
 
-A single fault record. `OnFaultData()` may carry multiple faults at once (`FaultDatas`)
-and is reported only when a fault occurs.
+A single fault record. `message` contains the protocol fault name (for example,
+`Actuator/OverCurrent`). `OnFaultData()` may carry multiple faults at once
+(`FaultDatas`) and is reported only when a fault occurs.
 
 ---
 
@@ -389,6 +428,10 @@ actual velocity limits:
 > Rule of thumb: the faster the robot moves forward, the less lateral and rotational motion
 > is allowed — a built-in safety policy of the motion controller.
 
+`MoveVelocity()` accepts physical-unit `x/y/yaw` directly and does not use the normalized mapping
+above, but it is still constrained by the current `SetSpeed()` level. A larger physical-unit
+request cannot bypass the speed-level limit.
+
 ---
 
 #### EmergencyStatus — E-stop Status
@@ -419,7 +462,7 @@ actual velocity limits:
 |:--|:--:|:--|:--|
 | `MOTION_STATUS_UNKNOWN` | 0 | Unknown | — |
 | `MOTION_STATUS_STAND_UP` | 1 | Standing up (in progress) | `StandUp()` |
-| `MOTION_STATUS_WALK` | 2 | Walk (ready to move) | `Move()` |
+| `MOTION_STATUS_WALK` | 2 | Walk (ready to move) | `Walk()` |
 | `MOTION_STATUS_BALANCE_STAND` | 3 | Balance stand | `BalanceStandUp()` |
 | `MOTION_STATUS_LIE_DOWN` | 4 | Lying down | `LieDown()` |
 | `MOTION_STATUS_CRAWL` | 5 | Crawling | `Crawl()` |
@@ -429,7 +472,6 @@ actual velocity limits:
 | `MOTION_STATUS_STAIR` | 9 | Stair-climbing | `Stair()` |
 | `MOTION_STATUS_SLIM` | 10 | Slim (narrow passage) | `Slim()` |
 | `MOTION_STATUS_GAIT` | 11 | Gait | `Gait()` |
-| `MOTION_STATUS_DSB` | 12 | DSB | `DSB()` |
 | `MOTION_STATUS_POS_CONTROL` | 13 | Position control | `PosControl()` |
 | `MOTION_STATUS_SK_WALK` | 14 | SameKnee walk | `SkWalk()` |
 | `MOTION_STATUS_SAND` | 15 | Sand posture | `Sand()` |
@@ -571,7 +613,7 @@ actual value applied by the device.
 struct TaskStateInfo {
   TaskType task_type;      // Task type
   TaskStatus task_status;  // Task status
-  std::string phase;       // Task phase description (reserved)
+  std::string phase;       // Task subphase; may be empty
   uint32_t error_code;     // 0 = success, non-zero = failure
 };
 ```
@@ -579,6 +621,16 @@ struct TaskStateInfo {
 Actively reported by the robot when a task's state changes; received via `OnTaskStateData()`.
 Mainly used to monitor recharge and undock tasks — see
 [Recharge & Undock Task Guide](sdk_recharge_task_en.md).
+For recharge and undock `error_code` values, see
+[Recharge and Undock Task Error Codes](sdk_recharge_errorcode_en.md).
+
+Current recharge phases are `recharge_preparing`, `recharge_docking`,
+`recharge_charging`, and `recharge_completed`. Current undock phases are
+`undock_preparing`, `undock_undocking`, and `undock_completed`. `phase` may be
+empty with older versions, before a concrete phase is entered, or when the task's
+major state does not match. Future versions may introduce new values. Use it only
+to refine progress; determine terminal outcomes from `task_status`. See
+[Recharge & Undock Task Guide](sdk_recharge_task_en.md#phase--task-subphase).
 
 ---
 
@@ -708,3 +760,4 @@ posture first via `PosControl()`).
 - [Connection Guide](sdk_connection_en.md) — Connection parameters and states
 - [Control Ownership](sdk_control_ownership_en.md) — SDK vs APP ownership rules
 - [Recharge & Undock Task Guide](sdk_recharge_task_en.md) — Task state flow and usage tips
+- [Recharge, Undock, and Dock Calibration Conditions and Troubleshooting](sdk_recharge_undock_calibration_conditions_en.md) - Prerequisites and troubleshooting guidance for recharge, undock, and dock calibration

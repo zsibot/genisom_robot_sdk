@@ -346,5 +346,6 @@ config.connect_timeout_ms = 5000;     // 5-second connection timeout
 
 - [SDKClient API Documentation](sdk_client_api_en.md) - Detailed client interface documentation
 - [Recharge and Undock Task Usage Guide](sdk_recharge_task_en.md) - Usage guide for `StartRechargeTask`, `StopRechargeTask`, `StartUnDockTask`, and `StopUnDockTask`
+- [Recharge, Undock, and Dock Calibration Conditions and Troubleshooting](sdk_recharge_undock_calibration_conditions_en.md) - Prerequisites and troubleshooting guidance for recharge, undock, and dock calibration
 - [State Definition Documentation](sdk_state_en.md) - Connection state and motion state details
 - [Type Definition Documentation](sdk_type_en.md) - Data types and structure definitions

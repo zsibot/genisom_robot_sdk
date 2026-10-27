@@ -3,6 +3,23 @@
 This document records the feature updates, improvements, and bug fixes for each version of the Robot SDK.
 
 ---
+## [v0.2.3] - 2026
+
+### 📝 Notes
+- Added the `Walk()` posture interface (`action/walk`) and its `OnWalk()` ACK callback.
+- Remove `DSB()`.
+- Add fault code description information.
+- Added charging dock scan, connect/disconnect, status query, and asynchronous
+  terminal-result APIs for protocol types `1008/1018/1022/1023/1024`.
+
+### 🐛 Bug Fixes
+- Fixed failed initial connections leaving `SDKClient` permanently in
+  `CONNECTING` or `HANDSHAKING`. The same client instance can now retry after
+  transport, handshake, protocol, or control-denial failures.
+- Fixed UDP handshakes stopping reception after a transient socket error or a
+  non-handshake datagram arrives before the handshake acknowledgement.
+
+---
 ## [v0.2.2] - 2026
 
 ### 📝 Notes

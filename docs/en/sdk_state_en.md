@@ -23,6 +23,7 @@ position control... The robot is in exactly one posture at a time, and the postu
 | Posture | Switch API | Reported MotionStatus | Mobility | Exclusive Capabilities / Notes |
 |:--|:--|:--|:--|:--|
 | Stand up | `StandUp()` | `STAND_UP` → `WALK` | `Move()` | Becomes ready to walk when done |
+| Walk posture | `Walk()` | `WALK` | `Move()` | Wire command: `action/walk` |
 | Balance stand | `BalanceStandUp()` | `BALANCE_STAND` | — | `ControlHead()` / `Turn()` / `HighLowStance()` (in-place mode) |
 | Lie down | `LieDown()` | `LIE_DOWN` | — | — |
 | Stair | `Stair()` | `STAIR` | `Move()` | — |
@@ -31,7 +32,6 @@ position control... The robot is in exactly one posture at a time, and the postu
 | Climb | `Climb()` | `CLIMB` | `Move()` | General mode only |
 | Gait | `Gait()` | `GAIT` | `Move()` | General mode only |
 | Slim (narrow passage) | `Slim()` | `SLIM` | `Move()` | General mode only; unsupported on the L2 series |
-| DSB | `DSB()` | `DSB` | `Move()` | General mode only; unsupported on the L2 series |
 | Position control | `PosControl()` | `POS_CONTROL` | `PosMove()` | General mode only |
 | SameKnee walk | `SkWalk()` | `SK_WALK` | `Move()` | General mode only; **can only switch back to `StandUp`**; unsupported on the L2 series |
 | Sand | `Sand()` | `SAND` | `Move()` | General mode only; wire protocol `action/snow`; unsupported on the L2 series |

@@ -76,7 +76,6 @@ const std::unordered_map<MotionStatus, const char*> g_motion_status_map = {
     {MotionStatus::MOTION_STATUS_STAIR, "Stair"},
     {MotionStatus::MOTION_STATUS_SLIM, "Slim"},
     {MotionStatus::MOTION_STATUS_GAIT, "Gait"},
-    {MotionStatus::MOTION_STATUS_DSB, "DSB"},
     {MotionStatus::MOTION_STATUS_POS_CONTROL, "PosControl"},
     {MotionStatus::MOTION_STATUS_SK_WALK, "SkWalk"},
     {MotionStatus::MOTION_STATUS_SAND, "Sand"},

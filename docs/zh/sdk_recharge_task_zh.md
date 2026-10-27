@@ -177,6 +177,25 @@ struct TaskStateInfo {
 - `TaskStatus::FAILURE`
 - `TaskStatus::STOPPED`
 
+### `phase` — 任务子阶段
+
+回充任务当前定义的阶段：
+
+| `phase` | 含义 |
+|:--|:--|
+| `recharge_preparing` | 回充准备中 |
+| `recharge_docking` | 对桩、进桩中 |
+| `recharge_charging` | 充电中 |
+| `recharge_completed` | 回充完成，进入满电保持 |
+
+出桩任务当前定义的阶段：
+
+| `phase` | 含义 |
+|:--|:--|
+| `undock_preparing` | 出桩准备中 |
+| `undock_undocking` | 出桩执行中 |
+| `undock_completed` | 出桩完成 |
+
 ---
 
 ## MachineStatus 辅助判断
@@ -262,8 +281,9 @@ struct TaskStateInfo {
 1. 命令是否成功发送
 2. 是否收到 `OnStartRechargeTask()`
 3. 是否收到 `TaskType::RECHARGING` 的状态更新
-4. 若失败，则查看 `error_code`
-5. 若需要结束充电任务，则调用 `StopRechargeTask()`，并等待 `STOPPED`
+4. 读取 `phase` 展示准备、进桩、充电或满电保持进度；允许其为空或出现未知值
+5. 若失败，则查看 `error_code`
+6. 若需要结束充电任务，则调用 `StopRechargeTask()`，并等待 `STOPPED`
 
 ---
 
@@ -332,9 +352,10 @@ struct TaskStateInfo {
 1. 命令是否成功发送
 2. 是否收到 `OnStartUnDockTask()`
 3. 是否收到 `TaskType::UNDOCK` 的状态更新
-4. 若最终为 `SUCCESS`，表示离桩任务完成
-5. 若最终为 `FAILURE`，查看 `error_code`
-6. 若需要中途停止，则调用 `StopUnDockTask()`，并等待 `STOPPED`
+4. 读取 `phase` 展示准备、出桩执行或完成进度；允许其为空或出现未知值
+5. 若最终为 `SUCCESS`，表示离桩任务完成
+6. 若最终为 `FAILURE`，查看 `error_code`
+7. 若需要中途停止，则调用 `StopUnDockTask()`，并等待 `STOPPED`
 
 ---
 
@@ -445,12 +466,14 @@ class DataCallback : public IDataCallback {
     if (info.task_type == TaskType::RECHARGING) {
       std::cout << "[TASK][RECHARGING] status="
                 << static_cast<int>(info.task_status)
+                << ", phase=" << info.phase
                 << ", error_code=" << info.error_code << std::endl;
     }
 
     if (info.task_type == TaskType::UNDOCK) {
       std::cout << "[TASK][UNDOCK] status="
                 << static_cast<int>(info.task_status)
+                << ", phase=" << info.phase
                 << ", error_code=" << info.error_code << std::endl;
     }
   }
@@ -520,6 +543,9 @@ int main() {
 
 最终应以 `OnTaskStateData()` 为准。
 
+其中 `task_status` 用于判断生命周期和最终结果，`phase` 只用于细化当前执行阶段。
+不要因为 `phase` 为空或无法识别就判定任务失败。
+
 ### 2. 失败时优先查看 `error_code`
 
 当任务状态为 `FAILURE` 时，应优先读取：
@@ -527,6 +553,8 @@ int main() {
 - `TaskStateInfo.error_code`
 
 用于定位任务失败原因。
+回充任务的 `0x11000`～`0x11FFF` 和出桩任务的 `0x16000`～`0x16FFF`
+完整对照见 [回充与出桩任务错误码](sdk_recharge_errorcode_zh.md)。
 
 ### 3. `MachineStatus` 只作为辅助判断
 
@@ -575,4 +603,6 @@ int main() {
 - [SDKClient API 文档](sdk_client_api_zh.md) - 客户端接口详细说明
 - [Callback 回调接口](sdk_callback_zh.md) - 控制回调与数据回调说明
 - [类型定义文档](sdk_type_zh.md) - `TaskType`、`TaskStatus`、`TaskStateInfo` 等类型说明
+- [回充与出桩任务错误码](sdk_recharge_errorcode_zh.md) - `OnTaskStateData()` 上报的任务失败原因
 - [连接配置文档](sdk_connection_zh.md) - 连接与基本使用方式说明
+- [回充、退桩与基站标定使用条件和故障说明](sdk_recharge_undock_calibration_conditions_zh.md) - 任务使用条件、执行流程和常见故障处理

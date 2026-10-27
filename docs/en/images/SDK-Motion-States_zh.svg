@@ -45,11 +45,11 @@
   <text x="660" y="234" class="chip" fill="#15803d">爬高台 Climb</text>
   <text x="165" y="294" class="chip" fill="#15803d">步态 Gait</text>
   <text x="330" y="294" class="chip" fill="#15803d">瘦身 Slim</text>
-  <text x="495" y="294" class="chip" fill="#15803d">过挡鼠板 DSB</text>
+  <text x="495" y="294" class="chip" fill="#15803d">行走 Walk</text>
   <text x="660" y="294" class="chip" fill="#15803d">沙地 Sand</text>
   <text x="88" y="352" class="note">• 站立完成后 motion_status 变为 WALK（可行走状态）</text>
-  <text x="88" y="376" class="note">• 爬高台 / 步态 / 瘦身 / 过挡鼠板 / 沙地仅通用模式可用</text>
-  <text x="88" y="400" class="note">• 瘦身 / 过挡鼠板 / 沙地不支持 L2 系列</text>
+  <text x="88" y="376" class="note">• 爬高台 / 步态 / 瘦身 / 沙地仅通用模式可用</text>
+  <text x="88" y="400" class="note">• 瘦身 / 沙地不支持 L2 系列</text>
 
   <!-- 原地姿态 -->
   <g filter="url(#shadow)">

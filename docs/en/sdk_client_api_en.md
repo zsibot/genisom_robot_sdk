@@ -4,7 +4,7 @@
 
 `SDKClient` is the core class of the Robot SDK. It manages the connection and sends all commands,
 covering motion & posture control, speed control, lights, data report configuration, control ownership,
-camera, recharge/undock tasks, peripheral power, and LED effects.
+camera, charging dock pairing, recharge/undock tasks, peripheral power, and LED effects.
 
 - Namespace: `robot_sdk`; header: `robot_sdk/sdk_client.hpp`
 - Per-model API support: see the [API capability matrix](sdk_api_capability_en.md)
@@ -77,10 +77,11 @@ except the software e-stop. See [Control Ownership](sdk_control_ownership_en.md)
 | [Connection Management](#connection-management) | `Connect`, `Disconnect`, `IsConnected`, `GetConnectionState` |
 | [Callback Registration](#callback-registration) | `SetControlCallback`, `SetDataCallback` |
 | [Safety](#safety) | `SoftEmergencyStop` |
-| [Posture Control](#posture-control) | `StandUp`, `BalanceStandUp`, `LieDown`, `Stair`, `Crawl`, `CrawlWalk`, `Climb`, `Slim`, `Gait`, `DSB`, `PosControl`, `SkWalk`, `Sand`, `ReverseHeadTail`, `Locked` |
+| [Posture Control](#posture-control) | `StandUp`, `BalanceStandUp`, `LieDown`, `Stair`, `Crawl`, `CrawlWalk`, `Climb`, `Slim`, `Gait`, `Walk`, `PosControl`, `SkWalk`, `Sand`, `ReverseHeadTail`, `Locked` |
 | [Motion Control](#motion-control) | `Move`, `PosMove`, `Turn`, `ControlHead`, `HighLowStance`, `SetSpeed` |
 | [Lights & Perception Switches](#lights--perception-switches) | `FrontLight`, `BackLight`, `AutoModeLight`, `ObstacleAvoidance` |
 | [Data Report Configuration](#data-report-configuration) | `SetImuConfig`, `SetLuxConfig`, `SetMcConfig`, `SetSpeedReportConfig`, `SetJointStateConfig` |
+| [Charging Dock Pairing](#charging-dock-pairing) | `SetDockScanConfig`, `ConnectDock`, `DisconnectDock`, `GetDockInfo` |
 | [Control Ownership](#control-ownership) | `TakeControl`, `ReleaseControl` |
 | [Camera](#camera) | `UpdateCameraBitrate` |
 | [Tasks & State Switching](#tasks--state-switching) | `StartRechargeTask`, `StopRechargeTask`, `StartUnDockTask`, `StopUnDockTask`, `SwitchRemoteState`, `SwitchIdleState` |
@@ -219,6 +220,8 @@ Registers callbacks for data actively reported by the robot (sensors, state, fau
 ownership events, etc.). Full list: [Callback Reference](sdk_callback_en.md).
 
 > Register callbacks before `Connect()` to avoid missing early reports.
+>
+> pass `nullptr` to unregister the corresponding user callback.
 
 ---
 
@@ -261,7 +264,7 @@ std::error_code CrawlWalk(int timeout_ms = 0, WriteHandler handler = ...);      
 std::error_code Climb(int timeout_ms = 0, WriteHandler handler = ...);          // Climb platform (general mode)
 std::error_code Slim(int timeout_ms = 0, WriteHandler handler = ...);           // Slim / narrow passage (general mode)
 std::error_code Gait(int timeout_ms = 0, WriteHandler handler = ...);           // Gait (general mode)
-std::error_code DSB(int timeout_ms = 0, WriteHandler handler = ...);            // DSB (general mode)
+std::error_code Walk(int timeout_ms = 0, WriteHandler handler = ...);           // Walk posture
 std::error_code PosControl(int timeout_ms = 0, WriteHandler handler = ...);     // Enter position-control posture (general mode)
 std::error_code SkWalk(int timeout_ms = 0, WriteHandler handler = ...);         // SameKnee walk (general mode)
 std::error_code Sand(int timeout_ms = 0, WriteHandler handler = ...);           // Sand posture (general mode)
@@ -273,11 +276,13 @@ Key notes:
 
 - **StandUp**: while standing up, `RobotState::motion_status` reports `MOTION_STATUS_STAND_UP`;
   once finished, it becomes `MOTION_STATUS_WALK`.
+- **Walk**: sends `action/walk` on the wire; after the switch succeeds,
+  `RobotState::motion_status` reports `MOTION_STATUS_WALK`.
 - **Locked**: joints hold their current positions; issuing another posture command
   (stand up / lie down / crawl...) unlocks automatically.
 - **Sand**: the wire-protocol action is `action/snow`; the device-reported `snow` state is parsed
   by the SDK as `MOTION_STATUS_SAND`.
-- **Model restrictions**: `Slim`, `DSB`, `SkWalk`, and `Sand` are not supported on the L2
+- **Model restrictions**: `Slim`, `SkWalk`, and `Sand` are not supported on the L2
   series; `ReverseHeadTail` is unsupported on the L2 series and on `DeviceType::M1_AIR` /
   `DeviceType::M1F_AIR`; `Gait` is unsupported on the L2F point-foot variants
   (`DeviceType::L2F`, `DeviceType::L2F_ULTRA`).
@@ -323,6 +328,36 @@ see [Error Code Mechanism](#3-error-code-mechanism) for others.
 
 ---
 
+### MoveVelocity — Direct Velocity Control
+
+```cpp
+std::error_code MoveVelocity(float x, float y, float yaw,
+                             int timeout_ms = 0,
+                             WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+Sends body-frame velocity in physical units, intended for a higher-level controller that already
+produces velocity commands. Unlike the normalized joystick input of `Move()`, `MoveVelocity()`
+does not take `[-1, 1]` ratios.
+**Physical units do not bypass speed limiting:** `x/y/yaw` are saturated according to the current
+`SetSpeed()` level and the [SpeedLevel mapping table](sdk_type_en.md#speedlevel--speed-level);
+requests above that level's permitted range are not forwarded unchanged. Motion-timeout protection
+is retained. Send periodically for continuous motion (10–20 Hz recommended).
+
+**Parameters:**
+
+| Parameter | Type | Unit | Description |
+|:--|:--|:--|:--|
+| `x` | `float` | m/s | Longitudinal body-frame velocity; positive = forward |
+| `y` | `float` | m/s | Lateral body-frame velocity; positive = left |
+| `yaw` | `float` | rad/s | Yaw angular velocity; positive follows the right-hand rule |
+
+**Returns:** non-finite arguments (`NaN`/`±Inf`) yield `std::errc::invalid_argument`;
+see [Error Code Mechanism](#3-error-code-mechanism) for others.
+**ACK:** none — check the `WriteHandler` send result only.
+
+---
+
 ### PosMove — Position-Control Move
 
 ```cpp
@@ -347,7 +382,7 @@ std::error_code Turn(int direction, int timeout_ms = 0,
                      WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-Rolls the body left/right in place (in-place mode only).
+Rolls the body left/right(balance standup only).
 
 **Parameters:**
 
@@ -366,7 +401,7 @@ std::error_code ControlHead(float left_right, float up_down, int timeout_ms = 0,
                             WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-Controls "lean head left/right" and "look up/down" (in-place mode only).
+Controls "lean head left/right" and "look up/down" (balance standup only).
 
 **Parameters:**
 
@@ -386,7 +421,7 @@ std::error_code HighLowStance(int stance, int timeout_ms = 0,
                               WriteHandler handler = [](const std::error_code&, std::size_t) {})
 ```
 
-Adjusts body height stance (in-place mode only).
+Adjusts body height stance (balance standup only).
 
 **Parameters:**
 
@@ -469,6 +504,81 @@ Each configuration has a matching config ACK (`OnImuConfig`, etc.). Struct defin
 
 ---
 
+## Charging Dock Pairing
+
+### SetDockScanConfig — Start or Stop Dock Scanning
+
+```cpp
+std::error_code SetDockScanConfig(
+    bool on, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+Starts or stops charging dock scanning on the robot. Protocol ID: `1008 (target=302)`.
+
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `on` | `bool` | `true`: start scanning; `false`: stop scanning |
+
+**Results and callbacks:**
+
+- `OnDockScanConfig(bool on)`: confirms that the scan setting has been applied.
+- `OnDockScanResult(const DockScanResult& result)`: passively receives scan results under protocol ID `1018`; it may be called multiple times while scanning.
+- Update the device list by `DockScanDevice::address`, and stop scanning after selecting a dock.
+
+### ConnectDock — Connect to a Charging Dock
+
+```cpp
+std::error_code ConnectDock(
+    const DockConnectConfig& config, int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+Connects to the specified charging dock. Protocol ID: `1022`.
+
+```cpp
+struct DockConnectConfig {
+  std::string address;
+};
+```
+
+| Parameter | Type | Description |
+|:--|:--|:--|
+| `config.address` | `std::string` | Charging dock address obtained from a scan result; must not be empty |
+
+**Results and callbacks:**
+
+1. `OnDockConnectionAck(const DockConnectionAck& ack)`: check `ack.accepted` to determine whether the robot accepted the connection request.
+2. `OnDockConnectionResult(const DockConnectionResult& result)`: passively receives the final result under protocol ID `1024`; check `result.success` for final success.
+
+> The return value of `ConnectDock()` and its `WriteHandler` only describe the send result. `ack.accepted == true` also does not mean that the connection succeeded; use `OnDockConnectionResult()` as the final result.
+
+### DisconnectDock — Disconnect from a Charging Dock
+
+```cpp
+std::error_code DisconnectDock(
+    int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+Disconnects the currently connected charging dock. Protocol ID: `1022`. `OnDockConnectionAck()` returns the request acknowledgment, and `OnDockConnectionResult()` passively reports the final result.
+
+Start only one connect or disconnect operation at a time, and wait for its final result before starting another operation.
+
+### GetDockInfo — Query Charging Dock Information
+
+```cpp
+std::error_code GetDockInfo(
+    int timeout_ms = 0,
+    WriteHandler handler = [](const std::error_code&, std::size_t) {})
+```
+
+Actively queries charging dock information and its connection, contact, charging, and fill-light states. Protocol ID: `1023`. The result arrives through `OnDockInfo(const DockInfo& info)`; this callback may also arrive when the dock state changes.
+
+After connecting or disconnecting, call this API and check `DockInfo::dock_connected` to confirm the current state. See the [Charging Dock Pairing API Guide](sdk_dock_pairing_en.md) for the complete workflow and keyboard-driven example.
+
+---
+
 ## Control Ownership
 
 ### TakeControl — Request Ownership
@@ -535,7 +645,10 @@ Key notes:
 
 - For task APIs (recharge/undock), "entered/exited" is confirmed via `OnStartRechargeTask()` etc.;
   **task progress and final results** are reported via `OnTaskStateData()` (`TaskStateInfo`).
-  Full state flow and usage tips: [Recharge & Undock Task Guide](sdk_recharge_task_en.md).
+  Its `phase` is an extensible task-subphase string that may be empty and is only
+  for progress reporting; use `task_status` for terminal outcomes.
+  For the full state flow and usage tips, see [Recharge & Undock Task Guide](sdk_recharge_task_en.md);
+  for failure `error_code` values, see [Recharge and Undock Task Error Codes](sdk_recharge_errorcode_en.md).
 - `SwitchRemoteState` / `SwitchIdleState` switch `MachineStatus` (`REMOTE` ↔ `IDLE`);
   their ACKs are `OnSwitchRemote()` / `OnSwitchIdle()`.
 
@@ -606,7 +719,7 @@ client.SetLedCommand(cmd);
 const std::string& Version() const
 ```
 
-Returns the SDK's own version string (e.g. `"1.2.0"`). Available at any time.
+Returns the SDK's full release version string (e.g. `"1.2.0"`, `"1.2.0-rc.1"`, or `"1.2.0-r1"`). Available at any time.
 
 ### ProtocolVersion — Protocol Version
 
@@ -697,3 +810,5 @@ More examples in the `example/` directory: `control.cpp` (motion), `take_control
 - [Control Ownership](sdk_control_ownership_en.md) — SDK vs APP ownership rules
 - [API Capability Matrix](sdk_api_capability_en.md) — Per-model API support
 - [Recharge & Undock Task Guide](sdk_recharge_task_en.md) — Detailed task API usage
+- [Charging Dock Pairing API Guide](sdk_dock_pairing_en.md) — Scan, connect, query, and disconnect workflow
+- [Recharge, Undock, and Dock Calibration Conditions and Troubleshooting](sdk_recharge_undock_calibration_conditions_en.md) - Prerequisites and troubleshooting guidance for recharge, undock, and dock calibration

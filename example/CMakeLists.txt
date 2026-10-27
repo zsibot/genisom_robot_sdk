@@ -15,6 +15,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Assume current CMakeLists.txt is located in install/example/
 # Then the SDK root directory is install/
 get_filename_component(SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+set(ARCH_DIR "${CMAKE_SYSTEM_PROCESSOR}")
 
 message(STATUS "Using SDK root: ${SDK_ROOT}")
 
@@ -27,6 +28,7 @@ link_directories(${SDK_ROOT}/lib/${CMAKE_SYSTEM_PROCESSOR})
 # -------------------------------
 # 4. Add Executable Files
 # -------------------------------
+add_executable(quick_start quick_start.cpp)
 add_executable(data data.cpp)
 add_executable(control control.cpp)
 add_executable(async async.cpp)
@@ -37,10 +39,12 @@ add_executable(take_control take_control.cpp)
 add_executable(camera_bitrate camera_bitrate.cpp)
 add_executable(recharge recharge.cpp)
 add_executable(led led.cpp)
+add_executable(dock_pairing dock_pairing.cpp)
 
 # -------------------------------
 # 5. Link SDK Library
 # -------------------------------
+target_link_libraries(quick_start PRIVATE robot_sdk Threads::Threads)
 target_link_libraries(data PRIVATE robot_sdk)
 target_link_libraries(control PRIVATE robot_sdk)
 target_link_libraries(async PRIVATE robot_sdk Threads::Threads)
@@ -51,10 +55,14 @@ target_link_libraries(take_control PRIVATE robot_sdk Threads::Threads)
 target_link_libraries(camera_bitrate PRIVATE robot_sdk)
 target_link_libraries(recharge PRIVATE robot_sdk Threads::Threads)
 target_link_libraries(led PRIVATE robot_sdk Threads::Threads)
+target_link_libraries(dock_pairing PRIVATE robot_sdk Threads::Threads)
 # -------------------------------
 # 6. Runtime Library Search Path (RPATH)
 # -------------------------------
 # Ensure that the runtime can find libraries in install/lib
+set_target_properties(quick_start PROPERTIES
+    BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
+)
 set_target_properties(data PROPERTIES
     BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
 )
@@ -83,5 +91,8 @@ set_target_properties(recharge PROPERTIES
     BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
 )
 set_target_properties(led PROPERTIES
+    BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
+)
+set_target_properties(dock_pairing PROPERTIES
     BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
 )

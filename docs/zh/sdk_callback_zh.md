@@ -7,8 +7,8 @@ SDK 提供两个回调接口，分工明确：
 
 | 接口 | 职责 | 典型内容 |
 |:--|:--|:--|
-| `IDataCallback` | 接收机器人**主动上报**的数据 | 传感器数据、机器人状态、故障、控制权事件、任务状态 |
-| `IControlCallback` | 接收控制命令的**应答（ACK）** | "机器人已收到你的命令"的确认，以及命令携带的业务结果 |
+| `IDataCallback` | 接收机器人**推送**的数据与异步终态 | 传感器数据、机器人状态、故障、控制权事件、任务状态、充电桩扫描与连接终态 |
+| `IControlCallback` | 接收控制命令的**应答（ACK）**与查询结果 | "机器人已收到你的命令"的确认，以及命令或查询携带的业务结果 |
 
 两者都是纯虚基类（带默认空实现），用户按需重写关注的回调即可，然后分别通过
 `SDKClient::SetDataCallback()` / `SetControlCallback()` 注册（`std::shared_ptr` 传递，SDK 内部持有该引用）。
@@ -17,10 +17,11 @@ SDK 提供两个回调接口，分工明确：
 
 理解回调的关键是区分两类消息：
 
-- **通知（IDataCallback）**：机器人单向推送，与用户是否发过命令无关。
-  例如 `OnRobotStateData()` 以 1 Hz 持续到来。
+- **通知与异步终态（IDataCallback）**：机器人单向推送数据、事件或耗时操作的最终结果，
+  不是命令接收确认。例如 `OnRobotStateData()` 以 1 Hz 持续到来，
+  `OnDockConnectionResult()` 则在充电桩连接或断开操作结束时到来。
 - **应答（IControlCallback）**：机器人对某条控制命令的回执，表示"命令已收到"。
-  例如调用 `StandUp()` 后收到 `OnStandUp()`。
+  部分查询结果也通过该接口返回，例如 `OnDockInfo()`。
 
 > **重要：** 大部分应答只表示"机器人**收到**了命令"，不代表动作**已完成**。
 > 例如收到 `OnStandUp()` 时机器人可能还在站立过程中——判断动作是否完成，
@@ -39,7 +40,8 @@ SDK 提供两个回调接口，分工明确：
    同步接口需要等待 I/O 线程上的后续事件才能完成，而 I/O 线程正被你的回调占用——调用无法完成，只能等待到超时。
    如果确实需要在回调中触发 SDK 操作，请投递到其他线程执行，或使用异步形式。
 3. **注意数据竞争**：回调线程与用户主线程并发运行，共享数据需加锁或使用原子变量。
-4. **不要抛异常**：回调中的未捕获异常会影响 SDK 内部循环。
+4. **不得抛出异常**：不要让任何异常越过回调边界。SDK 会捕获 `std::exception` 和未知异常、
+   输出错误日志并丢弃当前回调事件，以保护内部 I/O 线程；但异常的业务恢复、告警和数据补偿仍应由应用自行处理。
 
 ```cpp
 // 推荐写法：回调里只拷贝数据、置标志，业务逻辑在自己的线程里处理
@@ -67,6 +69,8 @@ class ROBOT_EXPORT_API IDataCallback {
   virtual void OnControlLost(const ControlLostInfo& info) {}
   virtual void OnControlAvailable(const ControlAvailableInfo& info) {}
   virtual void OnTaskStateData(const TaskStateInfo& info) {}
+  virtual void OnDockScanResult(const DockScanResult& result) {}
+  virtual void OnDockConnectionResult(const DockConnectionResult& result) {}
   virtual ~IDataCallback() = default;
 };
 ```
@@ -88,6 +92,23 @@ class ROBOT_EXPORT_API IDataCallback {
 | `OnRobotStateData(const RobotState&)` | 机器人综合状态快照 | 固定 1 Hz 持续上报 |
 | `OnFaultData(const FaultDatas&)` | 故障信息（可一次多条） | 故障发生时 |
 | `OnTaskStateData(const TaskStateInfo&)` | 任务状态（回充、离桩等） | 任务状态变化时 |
+
+回充与出桩任务失败时，错误原因由该回调的 `TaskStateInfo.error_code` 上报；
+完整对照见 [回充与出桩任务错误码](sdk_recharge_errorcode_zh.md)。
+`TaskStateInfo.phase` 提供回充/出桩的细分进度，可能为空或出现后续版本新增值；
+不能用它替代 `task_status` 判断终态。阶段值见
+[充电与离桩任务使用说明](sdk_recharge_task_zh.md#phase--任务子阶段)。
+
+### 充电桩扫描与连接终态
+
+| 回调 | 协议号 | 触发时机 | 关键结果 |
+|:--|:--:|:--|:--|
+| `OnDockScanResult(const DockScanResult& result)` | `1018` | 调用 `SetDockScanConfig(true)` 开启扫描后，由机器人被动推送；扫描期间可能多次触发 | `result.devices` 为本次设备列表，按 `device.address` 标识设备；`device.connectable` 表示是否可连接 |
+| `OnDockConnectionResult(const DockConnectionResult& result)` | `1024` | `ConnectDock()` 或 `DisconnectDock()` 的异步操作结束时 | `result.success` 为最终结果；失败原因见 `result.error_code` |
+
+`OnDockConnectionResult()` 才是连接或断开操作的终态；此前收到的 `OnDockConnectionAck()` 只表示请求是否被接受。同一时间只应发起一个连接或断开操作。
+
+完整使用流程见 [充电桩配对接口使用指南](sdk_dock_pairing_zh.md)。
 
 ### 控制权事件
 
@@ -115,7 +136,7 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnClimb() {}
   virtual void OnSlim() {}
   virtual void OnGait() {}
-  virtual void OnDSB() {}
+  virtual void OnWalk() {}
   virtual void OnPosControl() {}
   virtual void OnSkWalk() {}
   virtual void OnSand() {}
@@ -131,9 +152,12 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnMcConfig(bool on) {}
   virtual void OnSpeedReportConfig(bool on, uint32_t frequency) {}
   virtual void OnJointStateConfig(bool on) {}
+  virtual void OnDockScanConfig(bool on) {}
   virtual void OnTakeControlAck(const TakeControlAck& ack) {}
   virtual void OnReleaseControlAck(const ReleaseControlAck& ack) {}
   virtual void OnUpdateCameraBitrateAck(const CameraBitrateAck& ack) {}
+  virtual void OnDockConnectionAck(const DockConnectionAck& ack) {}
+  virtual void OnDockInfo(const DockInfo& info) {}
   virtual void OnSwitchRemote() {}
   virtual void OnSwitchIdle() {}
   virtual void OnStartRechargeTask() {}
@@ -163,7 +187,7 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnClimb()` | `Climb()` | — |
 | `OnSlim()` | `Slim()` | — |
 | `OnGait()` | `Gait()` | — |
-| `OnDSB()` | `DSB()` | — |
+| `OnWalk()` | `Walk()` | — |
 | `OnPosControl()` | `PosControl()` | — |
 | `OnSkWalk()` | `SkWalk()` | — |
 | `OnSand()` | `Sand()` | — |
@@ -171,7 +195,7 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnSpeed(int speed_level)` | `SetSpeed(level)` | 生效的速度档位（1 低 / 2 中 / 3 高） |
 | `OnLocked()` | `Locked()` | — |
 
-> `Move()`、`Turn()`、`ControlHead()`、`HighLowStance()`、`PosMove()` 这类连续量控制命令
+> `Move()`、`MoveVelocity()`、`Turn()`、`ControlHead()`、`HighLowStance()`、`PosMove()` 这类连续量控制命令
 > **没有对应的应答回调**，其结果只看 `WriteHandler` 的发送结果。
 
 ### 灯光与感知开关应答
@@ -192,6 +216,16 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnMcConfig(bool on)` | `SetMcConfig(on)` | 开关状态 |
 | `OnSpeedReportConfig(bool on, uint32_t frequency)` | `SetSpeedReportConfig(on, freq)` | 开关状态与生效频率 |
 | `OnJointStateConfig(bool on)` | `SetJointStateConfig(on)` | 开关状态 |
+
+### 充电桩应答与查询结果
+
+| 回调 | 对应接口 | 协议号 | 说明 |
+|:--|:--|:--:|:--|
+| `OnDockScanConfig(bool on)` | `SetDockScanConfig(on)` | `1008（target=302）` | 确认扫描开关已经设置；`on` 为当前开关状态 |
+| `OnDockConnectionAck(const DockConnectionAck& ack)` | `ConnectDock(config)` / `DisconnectDock()` | `1022` | `ack.accepted` 表示请求是否被接受；失败信息见 `ack.error_code` 和 `ack.error_message`。该回调不是连接终态 |
+| `OnDockInfo(const DockInfo& info)` | `GetDockInfo()` | `1023` | 返回充电桩信息以及连接、接触、充电和补光灯状态；状态变化时也可能触发 |
+
+连接或断开请求被接受后，继续等待 `IDataCallback::OnDockConnectionResult()` 获取终态。主动查询后通过 `OnDockInfo()` 读取 `info.dock_connected` 可再次确认连接状态。
 
 ### 控制权应答（携带业务结果）
 
@@ -291,11 +325,13 @@ client.SetControlCallback(std::make_shared<MyControlCallback>());
 
 - 回调在 SDK I/O 线程执行：**要轻量、禁阻塞、禁同步 SDK 调用、注意线程安全、勿抛异常**。
 - 应答 ≠ 动作完成：动作完成情况看 `RobotState`，任务完成情况看 `OnTaskStateData()`。
-- 携带 `error_code` 的应答（控制权、外设电源等）才是业务最终结果。
-- 回调对象通过 `shared_ptr` 注册，请保证对象生命周期长于 SDK 使用期；SDK 内部会持有该引用直到被替换或析构。
+- 是否属于业务终态取决于具体回调；例如 `OnDockConnectionAck()` 即使携带 `error_code`，也只表示请求是否被接受。
+- 回调对象通过 `shared_ptr` 注册，SDK 内部会持有引用；用户可以安全地替换回调，传入 `nullptr` 可取消注册。
+- 替换或取消回调不会中断已经开始的调用；SDK 持有该次调用的 `shared_ptr` 快照，旧回调会在本次调用结束后再按引用计数释放。
 
 ## 相关文档
 
 - [SDKClient API 文档](sdk_client_api_zh.md) — 客户端接口详细说明
 - [数据类型文档](sdk_type_zh.md) — 回调参数涉及的结构体定义
 - [控制权说明](sdk_control_ownership_zh.md) — 控制权事件的处理范式
+- [充电桩配对接口使用指南](sdk_dock_pairing_zh.md) — 扫描、连接、查询与断开流程

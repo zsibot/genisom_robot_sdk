@@ -66,26 +66,70 @@ struct DeviceInfo {
   std::string sn;
 };
 
-enum class FaultCode {
-  Unknown,                      // Unknown fault
-  ActuatorDisabled = 10,        // Actuator disabled
-  ActuatorEncoderError,         // Actuator encoder error
-  ActuatorOffline,              // Actuator offline
-  ActuatorOverVoltage,          // Actuator overvoltage
-  ActuatorOverheat,             // Actuator overheating
-  ActuatorTempWarn,             // Actuator temperature warning
-  ActuatorTimeout,              // Actuator control timeout
-  ActuatorUndervolt,            // Actuator undervoltage
-  PowerControlOverTemp,         // Battery overheat warning
-  PowerControlPowerEmpty,       // Battery below 10% capacity
-  PowerControlPowerLow,         // Battery below 20%, above 10%
-  PowerControlOffline,          // Power control board MCU connection failed
-  CANBroken,                    // CAN communication error
-  RobotRemoteKeepAliveFailure,  // Remote control disconnected
-  SystemClockSanityError,       // System time jump detected
-  SystemRobotStatusError,       // Robot status abnormal
-  IMUConnectError,              // IMU connection error
-  IMUDataNotUpdated,            // IMU data not updating
+/// @brief Fault codes reported by the robot diagnostic system.
+enum class FaultCode : int {
+  Unknown = 0,
+
+  SystemClockSanityError = 1001,
+  SystemKeyNodeLifecycleError = 1002,
+  SystemOptNodeLifecycleError = 1003,
+  MotionStateFallError = 1004,
+
+  IMUConnectError = 1101,
+  IMUDataNotUpdated = 1102,
+  IMUCrcError = 1103,
+
+  ActuatorOffline = 1201,
+  ActuatorDisabled = 1202,
+  ActuatorTimeout = 1203,
+  ActuatorEncoderError = 1204,
+  ActuatorOverVoltage = 1205,
+  ActuatorUndervolt = 1206,
+  ActuatorOverCurrent = 1207,
+  ActuatorOverSpeed = 1208,
+  ActuatorOverheat = 1209,
+  ActuatorOverTempWarn = 1210,
+  ActuatorOverTempProtect = 1211,
+  ActuatorDCOverVoltage = 1212,
+
+  PowerControlOffline = 1301,
+  PowerControlPowerLow = 1302,
+  PowerControlPowerEmpty = 1303,
+
+  CANBroken = 1401,
+
+  SystemMcBoardDiskIoUsageWarn = 1501,
+  SystemMcBoardDiskIoUsageError = 1502,
+  SystemMcBoardDiskIoDataUnavailable = 1503,
+  SystemMcBoardMemoryUsageWarn = 1504,
+  SystemMcBoardMemoryUsageError = 1505,
+  SystemMcBoardMemoryDataUnavailable = 1506,
+  SystemMcBoardCpuUsageWarn = 1507,
+  SystemMcBoardCpuUsageError = 1508,
+  SystemMcBoardCpuUsageDataUnavailable = 1509,
+  SystemMcBoardCpuCoreUsageDataUnavailable = 1510,
+  SystemMcBoardCpuTemperatureWarn = 1511,
+  SystemMcBoardCpuTemperatureError = 1512,
+  SystemMcBoardCpuTemperatureDataUnavailable = 1513,
+  SystemMcBoardCpuFrequencyLowWarn = 1514,
+  SystemMcBoardCpuFrequencyLowError = 1515,
+  SystemMcBoardCpuFrequencyDataUnavailable = 1516,
+  SystemAlgBoardDiskIoUsageWarn = 1517,
+  SystemAlgBoardDiskIoUsageError = 1518,
+  SystemAlgBoardDiskIoDataUnavailable = 1519,
+  SystemAlgBoardMemoryUsageWarn = 1520,
+  SystemAlgBoardMemoryUsageError = 1521,
+  SystemAlgBoardMemoryDataUnavailable = 1522,
+  SystemAlgBoardCpuUsageWarn = 1523,
+  SystemAlgBoardCpuUsageError = 1524,
+  SystemAlgBoardCpuUsageDataUnavailable = 1525,
+  SystemAlgBoardCpuCoreUsageDataUnavailable = 1526,
+  SystemAlgBoardCpuTemperatureWarn = 1527,
+  SystemAlgBoardCpuTemperatureError = 1528,
+  SystemAlgBoardCpuTemperatureDataUnavailable = 1529,
+  SystemAlgBoardCpuFrequencyLowWarn = 1530,
+  SystemAlgBoardCpuFrequencyLowError = 1531,
+  SystemAlgBoardCpuFrequencyDataUnavailable = 1532,
 };
 
 enum class FaultLevel {
@@ -97,7 +141,7 @@ enum class FaultLevel {
 
 /// @brief Fault data structure.
 struct FaultData {
-  /// @brief Fault code.
+  /// @brief Fault code reported by the robot.
   FaultCode code;
   /// @brief Fault level.
   FaultLevel level;
@@ -228,10 +272,8 @@ enum class MotionStatus {
   MOTION_STATUS_SLIM,
   /// @brief Gait state.
   MOTION_STATUS_GAIT,
-  /// @brief DSB state.
-  MOTION_STATUS_DSB,
   /// @brief PosControl state.
-  MOTION_STATUS_POS_CONTROL,
+  MOTION_STATUS_POS_CONTROL = 13,
   /// @brief SameKnee Walk state.
   MOTION_STATUS_SK_WALK,
   /// @brief Sand posture state.
@@ -292,6 +334,8 @@ enum class PeripheralPower {
   M1_48V = 1,
   M1_24V = 2,
   M1_12V = 3,
+  L2_24V = 4,
+  L2_AVIA = 5,
 };
 
 enum class LedId {
@@ -488,6 +532,66 @@ struct CameraBitrateAck {
   std::string camera_name;
   /// @brief Camera bitrate in bps (bit/s). Range: 50000-100000000.
   uint32_t camera_bps;
+};
+
+/// @brief A BLE charging dock discovered by protocol type 1018.
+struct DockScanDevice {
+  std::string name;
+  std::string address;
+  int16_t rssi = 0;
+  bool connectable = false;
+  std::vector<std::string> service_uuids;
+};
+
+/// @brief Charging dock scan result pushed by protocol type 1018.
+struct DockScanResult {
+  int32_t code = 0;
+  bool accepted = true;
+  bool scan_active = false;
+  std::vector<DockScanDevice> devices;
+  uint64_t updated_at_ms = 0;
+};
+
+/// @brief Parameters for connecting to a charging dock.
+/// Additional protocol options can be added here without changing the
+/// SDKClient::ConnectDock call shape.
+struct DockConnectConfig {
+  /// @brief Target charging dock BLE MAC address.
+  std::string address;
+};
+
+/// @brief Acknowledgment for charging dock connect/disconnect (type 1022).
+/// accepted only means that the asynchronous operation was dispatched. The
+/// final outcome is delivered by the later DockConnectionResult callback.
+struct DockConnectionAck {
+  int32_t code = 0;
+  bool accepted = false;
+  uint32_t error_code = 0;
+  std::string error_message;
+};
+
+/// @brief Current charging dock state returned by protocol type 1023.
+struct DockInfo {
+  int32_t code = 0;
+  std::string ble_address;
+  std::string name;
+  bool dock_connected = false;
+  bool has_contact = false;
+  bool charging_active = false;
+  bool light_switch_status = false;
+  uint8_t fill_light_brightness = 0;
+  std::string dock_sn;
+  std::string dock_version;
+  uint32_t error_code = 0;
+  std::string error_message;
+  bool auto_fill_light_enabled = false;
+};
+
+/// @brief Final charging dock connection result pushed by type 1024.
+struct DockConnectionResult {
+  int32_t code = 0;
+  bool success = false;
+  uint32_t error_code = 0;
 };
 
 struct TaskStateInfo {

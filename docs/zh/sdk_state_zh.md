@@ -20,32 +20,27 @@
 | 姿态 | 切换接口 | 上报状态 MotionStatus | 移动能力 | 专属能力 / 备注 |
 |:--|:--|:--|:--|:--|
 | 站立 | `StandUp()` | `STAND_UP` → `WALK` | `Move()` | 完成后进入可行走状态 |
+| 行走姿态 | `Walk()` | `WALK` | `Move()` | 底层协议命令为 `action/walk` |
 | 平衡站立 | `BalanceStandUp()` | `BALANCE_STAND` | — | `ControlHead()` 头部 / `Turn()` 翻滚 / `HighLowStance()` 站姿（原地模式） |
 | 卧倒 | `LieDown()` | `LIE_DOWN` | — | — |
 | 登阶 | `Stair()` | `STAIR` | `Move()` | — |
 | 匍匐 | `Crawl()` | `CRAWL` | — | — |
 | 匍匐行走 | `CrawlWalk()` | `CRAWL_WALK` | `Move()` | — |
-| 爬高台 | `Climb()` | `CLIMB` | `Move()` | 仅通用模式 |
-| 步态 | `Gait()` | `GAIT` | `Move()` | 仅通用模式 |
-| 瘦身（过窄道） | `Slim()` | `SLIM` | `Move()` | 仅通用模式；L2 系列不支持 |
-| 过挡鼠板 | `DSB()` | `DSB` | `Move()` | 仅通用模式；L2 系列不支持 |
-| 位控 | `PosControl()` | `POS_CONTROL` | `PosMove()` | 仅通用模式 |
-| 同膝 | `SkWalk()` | `SK_WALK` | `Move()` | 仅通用模式；**只能切回 `StandUp`**；L2 系列不支持 |
-| 沙地 | `Sand()` | `SAND` | `Move()` | 仅通用模式；协议为 `action/snow`；L2 系列不支持 |
+| 爬高台 | `Climb()` | `CLIMB` | `Move()` | — |
+| 步态 | `Gait()` | `GAIT` | `Move()` | — |
+| 瘦身（过窄道） | `Slim()` | `SLIM` | `Move()` | — |
+| 位控 | `PosControl()` | `POS_CONTROL` | `PosMove()` | 不支持从位控切入到锁定姿态 |
+| 同膝 | `SkWalk()` | `SK_WALK` | `Move()` | **只能切回 `StandUp`** |
+| 沙地 | `Sand()` | `SAND` | `Move()` | — |
 | 锁定 | `Locked()` | `LOCKED` | — | 切到任意其他姿态即自动解锁 |
 
-> 在 L2 系列上调用不支持的接口时，SDK 不会发送命令，直接返回
-> `robot_sdk::Errc::UnsupportedDeviceOperation`。各机型接口支持情况见
-> [API 机型能力表](sdk_api_capability_zh.md)。
+> 各机型接口支持情况见 [API 机型能力表](sdk_api_capability_zh.md)。
 
 ## 姿态切换规则
 
 1. **任意姿态可直接互切**，无需先切回站立——唯一例外是 `SkWalk`，它只能切回 `StandUp`。
 2. **锁定（Locked）后切换到任意其他姿态即自动解锁**，无需单独的解锁命令。
 3. **站立完成上报 `WALK`**：`STAND_UP` 只出现在站立过程中。
-4. **调转头尾（`ReverseHeadTail`）的机型限制**：L2 系列及 `DeviceType::M1_AIR`、`DeviceType::M1F_AIR` 不支持。
-5. **沙地姿态的协议差异**：底层下发 `action/snow`，设备上报 `snow` 状态时，
-   SDK 统一解析为 `MOTION_STATUS_SAND`。
 
 ## 命令下发与结果确认
 

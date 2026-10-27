@@ -110,32 +110,70 @@ std::cout << DeviceTypeName(info.device_type) << std::endl;
 ### FaultCode
 
 ```cpp
-enum class FaultCode
+enum class FaultCode : int
 ```
 
-机器人系统中可能出现的故障码。除 `Unknown` 外，数值从 `10` 开始连续递增。
+机器人诊断系统上报的强类型故障码，底层类型为 `int`。SDK 直接将协议中的 `error_code` 转换为该类型，不再根据错误名进行映射。当前错误定义如下：
 
-| 枚举值 | 整数值 | 说明 |
-|:--|:--:|:--|
-| `Unknown` | 0 | 未知故障 |
-| `ActuatorDisabled` | 10 | 执行器失能 |
-| `ActuatorEncoderError` | 11 | 执行器编码器错误 |
-| `ActuatorOffline` | 12 | 执行器掉线 |
-| `ActuatorOverVoltage` | 13 | 执行器过压 |
-| `ActuatorOverheat` | 14 | 执行器过热 |
-| `ActuatorTempWarn` | 15 | 执行器温度预警 |
-| `ActuatorTimeout` | 16 | 执行器控制超时 |
-| `ActuatorUndervolt` | 17 | 执行器欠压 |
-| `PowerControlOverTemp` | 18 | 电池过热预警 |
-| `PowerControlPowerEmpty` | 19 | 电池电量低于 10% |
-| `PowerControlPowerLow` | 20 | 电池电量低于 20%（高于 10%） |
-| `PowerControlOffline` | 21 | 电源控制板 MCU 连接失败 |
-| `CANBroken` | 22 | CAN 通信异常 |
-| `RobotRemoteKeepAliveFailure` | 23 | 遥控器断链 |
-| `SystemClockSanityError` | 24 | 系统时间跳变 |
-| `SystemRobotStatusError` | 25 | 机器人状态异常 |
-| `IMUConnectError` | 26 | IMU 连接异常 |
-| `IMUDataNotUpdated` | 27 | IMU 数据不更新 |
+| 错误码 | `FaultCode` 枚举值 | 协议错误名 | 默认等级 | 中文说明 |
+|:--:|:--|:--|:--:|:--|
+| 1001 | `SystemClockSanityError` | System/ClockSanityError | 致命错误 | 系统时钟异常（检测到系统时间跳变） |
+| 1002 | `SystemKeyNodeLifecycleError` | System/KeyNodeLifecycleError | 致命错误 | 关键节点不可达或生命周期状态异常 |
+| 1003 | `SystemOptNodeLifecycleError` | System/OptNodeLifecycleError | 警告 | 非关键节点不可达或生命周期状态异常 |
+| 1004 | `MotionStateFallError` | MotionState/FallError | 警告 | 机器人跌倒 |
+| 1101 | `IMUConnectError` | IMU/ConnectError | 致命错误 | IMU 连接异常 |
+| 1102 | `IMUDataNotUpdated` | IMU/DataNotUpdated | 致命错误 | IMU 数据长时间未更新 |
+| 1103 | `IMUCrcError` | IMU/ImuCrcError | 致命错误 | IMU 数据 CRC 校验错误 |
+| 1201 | `ActuatorOffline` | Actuator/Offline | 致命错误 | 电机离线 |
+| 1202 | `ActuatorDisabled` | Actuator/Disabled | 致命错误 | 电机处于失能状态 |
+| 1203 | `ActuatorTimeout` | Actuator/Timeout | 致命错误 | 电机上报指令超时 |
+| 1204 | `ActuatorEncoderError` | Actuator/EncoderError | 致命错误 | 电机编码器错误 |
+| 1205 | `ActuatorOverVoltage` | Actuator/OverVoltage | 致命错误 | 电机过压 |
+| 1206 | `ActuatorUndervolt` | Actuator/Undervolt | 致命错误 | 电机欠压 |
+| 1207 | `ActuatorOverCurrent` | Actuator/OverCurrent | 致命错误 | 电机过流 |
+| 1208 | `ActuatorOverSpeed` | Actuator/OverSpeed | 致命错误 | 电机超速 |
+| 1209 | `ActuatorOverheat` | Actuator/Overheat | 致命错误 | 电机过热（电机侧上报） |
+| 1210 | `ActuatorOverTempWarn` | Actuator/OverTempWarn | 警告 | 电机温度告警（驱动侧检测） |
+| 1211 | `ActuatorOverTempProtect` | Actuator/OverTempProtect | 致命错误 | 电机温度保护（驱动侧检测） |
+| 1212 | `ActuatorDCOverVoltage` | Actuator/DCOverVoltage | 错误 | 高速运动导致直流母线过压 |
+| 1301 | `PowerControlOffline` | PowerControl/Offline | 致命错误 | 电源控制板离线 |
+| 1302 | `PowerControlPowerLow` | PowerControl/PowerLow | 警告 | 电池电量低于 20%，但不低于 10% |
+| 1303 | `PowerControlPowerEmpty` | PowerControl/PowerEmpty | 致命错误 | 电池电量低于 10% |
+| 1401 | `CANBroken` | CAN/Broken | 致命错误 | CAN 总线通信异常 |
+| 1501 | `SystemMcBoardDiskIoUsageWarn` | System/McBoardDiskIoUsageWarn | 警告 | 主控板磁盘 IO 使用率达到警告水平 |
+| 1502 | `SystemMcBoardDiskIoUsageError` | System/McBoardDiskIoUsageError | 错误 | 主控板磁盘 IO 严重繁忙 |
+| 1503 | `SystemMcBoardDiskIoDataUnavailable` | System/McBoardDiskIoDataUnavailable | 错误 | 主控板磁盘 IO 数据不可用 |
+| 1504 | `SystemMcBoardMemoryUsageWarn` | System/McBoardMemoryUsageWarn | 警告 | 主控板内存使用率达到警告水平 |
+| 1505 | `SystemMcBoardMemoryUsageError` | System/McBoardMemoryUsageError | 错误 | 主控板可用内存严重不足 |
+| 1506 | `SystemMcBoardMemoryDataUnavailable` | System/McBoardMemoryDataUnavailable | 错误 | 主控板内存数据不可用 |
+| 1507 | `SystemMcBoardCpuUsageWarn` | System/McBoardCpuUsageWarn | 警告 | 主控板整体 CPU 使用率偏高 |
+| 1508 | `SystemMcBoardCpuUsageError` | System/McBoardCpuUsageError | 错误 | 主控板整体 CPU 使用率严重偏高 |
+| 1509 | `SystemMcBoardCpuUsageDataUnavailable` | System/McBoardCpuUsageDataUnavailable | 错误 | 主控板整体 CPU 使用率数据不可用 |
+| 1510 | `SystemMcBoardCpuCoreUsageDataUnavailable` | System/McBoardCpuCoreUsageDataUnavailable | 错误 | 主控板 CPU 核心使用率数据不可用 |
+| 1511 | `SystemMcBoardCpuTemperatureWarn` | System/McBoardCpuTemperatureWarn | 警告 | 主控板 CPU 温度偏高 |
+| 1512 | `SystemMcBoardCpuTemperatureError` | System/McBoardCpuTemperatureError | 错误 | 主控板 CPU 温度过高 |
+| 1513 | `SystemMcBoardCpuTemperatureDataUnavailable` | System/McBoardCpuTemperatureDataUnavailable | 错误 | 主控板 CPU 温度数据不可用 |
+| 1514 | `SystemMcBoardCpuFrequencyLowWarn` | System/McBoardCpuFrequencyLowWarn | 警告 | 主控板 CPU 忙时频率明显偏低 |
+| 1515 | `SystemMcBoardCpuFrequencyLowError` | System/McBoardCpuFrequencyLowError | 错误 | 主控板 CPU 忙时严重降频 |
+| 1516 | `SystemMcBoardCpuFrequencyDataUnavailable` | System/McBoardCpuFrequencyDataUnavailable | 错误 | 主控板 CPU 频率数据不可用 |
+| 1517 | `SystemAlgBoardDiskIoUsageWarn` | System/AlgBoardDiskIoUsageWarn | 警告 | 算力板磁盘 IO 使用率达到警告水平 |
+| 1518 | `SystemAlgBoardDiskIoUsageError` | System/AlgBoardDiskIoUsageError | 错误 | 算力板磁盘 IO 严重繁忙 |
+| 1519 | `SystemAlgBoardDiskIoDataUnavailable` | System/AlgBoardDiskIoDataUnavailable | 错误 | 算力板磁盘 IO 数据不可用 |
+| 1520 | `SystemAlgBoardMemoryUsageWarn` | System/AlgBoardMemoryUsageWarn | 警告 | 算力板内存使用率达到警告水平 |
+| 1521 | `SystemAlgBoardMemoryUsageError` | System/AlgBoardMemoryUsageError | 错误 | 算力板可用内存严重不足 |
+| 1522 | `SystemAlgBoardMemoryDataUnavailable` | System/AlgBoardMemoryDataUnavailable | 错误 | 算力板内存数据不可用 |
+| 1523 | `SystemAlgBoardCpuUsageWarn` | System/AlgBoardCpuUsageWarn | 警告 | 算力板整体 CPU 使用率偏高 |
+| 1524 | `SystemAlgBoardCpuUsageError` | System/AlgBoardCpuUsageError | 错误 | 算力板整体 CPU 使用率严重偏高 |
+| 1525 | `SystemAlgBoardCpuUsageDataUnavailable` | System/AlgBoardCpuUsageDataUnavailable | 错误 | 算力板整体 CPU 使用率数据不可用 |
+| 1526 | `SystemAlgBoardCpuCoreUsageDataUnavailable` | System/AlgBoardCpuCoreUsageDataUnavailable | 错误 | 算力板 CPU 核心使用率数据不可用 |
+| 1527 | `SystemAlgBoardCpuTemperatureWarn` | System/AlgBoardCpuTemperatureWarn | 警告 | 算力板 CPU 温度偏高 |
+| 1528 | `SystemAlgBoardCpuTemperatureError` | System/AlgBoardCpuTemperatureError | 错误 | 算力板 CPU 温度过高 |
+| 1529 | `SystemAlgBoardCpuTemperatureDataUnavailable` | System/AlgBoardCpuTemperatureDataUnavailable | 错误 | 算力板 CPU 温度数据不可用 |
+| 1530 | `SystemAlgBoardCpuFrequencyLowWarn` | System/AlgBoardCpuFrequencyLowWarn | 警告 | 算力板 CPU 忙时频率明显偏低 |
+| 1531 | `SystemAlgBoardCpuFrequencyLowError` | System/AlgBoardCpuFrequencyLowError | 错误 | 算力板 CPU 忙时严重降频 |
+| 1532 | `SystemAlgBoardCpuFrequencyDataUnavailable` | System/AlgBoardCpuFrequencyDataUnavailable | 错误 | 算力板 CPU 频率数据不可用 |
+
+其中 `1302`（PowerControl/PowerLow）可能因机器人配置而禁用。
 
 ---
 
@@ -160,15 +198,15 @@ enum class FaultLevel
 
 ```cpp
 struct FaultData {
-  FaultCode code;        // 故障码
+  FaultCode code;        // 机器人直接上报的故障码
   FaultLevel level;      // 故障等级
   std::string message;   // 故障描述文本
 };
 using FaultDatas = std::vector<FaultData>;
 ```
 
-单条故障信息。`OnFaultData()` 回调一次可能携带多条故障（`FaultDatas`），
-仅在故障发生时主动上报。
+单条故障信息。`message` 为协议中的错误名（例如 `Actuator/OverCurrent`）。
+`OnFaultData()` 回调一次可能携带多条故障（`FaultDatas`），仅在故障发生时主动上报。
 
 ---
 
@@ -379,6 +417,9 @@ struct BatteryData
 
 > 规律：跑得越快，允许同时横向移动和转向的幅度越小——这是运动控制的安全限速策略。
 
+`MoveVelocity()` 直接传入物理单位的 `x/y/yaw`，不使用上述归一化映射；但同样受当前
+`SetSpeed()` 速度等级约束。不能借由传入更大的物理速度值绕过速度等级限制。
+
 ---
 
 #### EmergencyStatus — 急停状态
@@ -409,7 +450,7 @@ struct BatteryData
 |:--|:--:|:--|:--|
 | `MOTION_STATUS_UNKNOWN` | 0 | 未知 | — |
 | `MOTION_STATUS_STAND_UP` | 1 | 站立过程中 | `StandUp()` |
-| `MOTION_STATUS_WALK` | 2 | 行走（可移动状态） | `Move()` |
+| `MOTION_STATUS_WALK` | 2 | 行走（可移动状态） | `Walk()` |
 | `MOTION_STATUS_BALANCE_STAND` | 3 | 平衡站立 | `BalanceStandUp()` |
 | `MOTION_STATUS_LIE_DOWN` | 4 | 卧倒 | `LieDown()` |
 | `MOTION_STATUS_CRAWL` | 5 | 匍匐 | `Crawl()` |
@@ -419,7 +460,6 @@ struct BatteryData
 | `MOTION_STATUS_STAIR` | 9 | 登阶 | `Stair()` |
 | `MOTION_STATUS_SLIM` | 10 | 瘦身（过窄道） | `Slim()` |
 | `MOTION_STATUS_GAIT` | 11 | 步态 | `Gait()` |
-| `MOTION_STATUS_DSB` | 12 | 过挡鼠板 | `DSB()` |
 | `MOTION_STATUS_POS_CONTROL` | 13 | 位控 | `PosControl()` |
 | `MOTION_STATUS_SK_WALK` | 14 | 同膝行走 | `SkWalk()` |
 | `MOTION_STATUS_SAND` | 15 | 沙地姿态 | `Sand()` |
@@ -555,13 +595,22 @@ struct CameraBitrateAck { /* 字段相同 */ };
 struct TaskStateInfo {
   TaskType task_type;    // 任务类型
   TaskStatus task_status;  // 任务状态
-  std::string phase;     // 任务阶段描述（预留）
+  std::string phase;     // 任务子阶段；可能为空
   uint32_t error_code;   // 0 = 成功，非 0 = 失败
 };
 ```
 
 任务状态变化时由机器人主动上报，经 `OnTaskStateData()` 回调接收。
 主要用于回充、离桩等任务的过程监控，详见 [充电与离桩任务使用说明](sdk_recharge_task_zh.md)。
+其中回充与出桩任务的 `error_code` 对照见
+[回充与出桩任务错误码](sdk_recharge_errorcode_zh.md)。
+
+回充阶段当前包括 `recharge_preparing`、`recharge_docking`、
+`recharge_charging`、`recharge_completed`；出桩阶段当前包括
+`undock_preparing`、`undock_undocking`、`undock_completed`。
+`phase` 可能因旧版本、尚未进入具体阶段或任务大状态不匹配而为空，也可能在后续
+版本出现新值。它只用于细化进度，任务终态必须以 `task_status` 为准。完整语义见
+[充电与离桩任务使用说明](sdk_recharge_task_zh.md#phase--任务子阶段)。
 
 ---
 
@@ -687,4 +736,5 @@ struct PosControlCmd {
 - [Callback 回调接口](sdk_callback_zh.md) — 回调接口定义与使用约束
 - [连接配置文档](sdk_connection_zh.md) — 连接参数与连接状态说明
 - [控制权说明](sdk_control_ownership_zh.md) — SDK 与 APP 控制权归属
-- [充电与离桩任务使用说明](sdk_recharge_task_zh.md) — 任务状态流转与使用建议
+- [回充与退桩任务使用说明](sdk_recharge_task_zh.md) — 任务状态流转与使用建议
+- [回充、退桩与基站标定使用条件和故障说明](sdk_recharge_undock_calibration_conditions_zh.md) - 回充、退桩和基站标定的使用条件及故障处理

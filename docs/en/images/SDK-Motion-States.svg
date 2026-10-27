@@ -48,11 +48,11 @@
   <text x="660" y="234" class="chip" fill="#15803d">Climb</text>
   <text x="165" y="294" class="chip" fill="#15803d">Gait</text>
   <text x="330" y="294" class="chip" fill="#15803d">Slim</text>
-  <text x="495" y="294" class="chip" fill="#15803d">DSB</text>
+  <text x="495" y="294" class="chip" fill="#15803d">Walk</text>
   <text x="660" y="294" class="chip" fill="#15803d">Sand</text>
   <text x="88" y="352" class="note">• After standing up, motion_status becomes WALK (ready to move)</text>
-  <text x="88" y="376" class="note">• Climb / Gait / Slim / DSB / Sand work in general mode only</text>
-  <text x="88" y="400" class="note">• Slim / DSB / Sand are unsupported on the L2 series</text>
+  <text x="88" y="376" class="note">• Climb / Gait / Slim / Sand work in general mode only</text>
+  <text x="88" y="400" class="note">• Slim / Sand are unsupported on the L2 series</text>
 
   <!-- In-place postures -->
   <g filter="url(#shadow)">

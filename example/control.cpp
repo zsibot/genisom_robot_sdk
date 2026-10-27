@@ -68,7 +68,6 @@ const std::unordered_map<MotionStatus, const char*> g_motion_status_map = {
     {MotionStatus::MOTION_STATUS_STAIR, "Stair"},
     {MotionStatus::MOTION_STATUS_SLIM, "Slim"},
     {MotionStatus::MOTION_STATUS_GAIT, "Gait"},
-    {MotionStatus::MOTION_STATUS_DSB, "DSB"},
     {MotionStatus::MOTION_STATUS_POS_CONTROL, "PosControl"},
     {MotionStatus::MOTION_STATUS_SK_WALK, "SkWalk"},
     {MotionStatus::MOTION_STATUS_SAND, "Sand"},
@@ -119,12 +118,34 @@ class DataCallback : public IDataCallback {
   }
 
   void OnFaultData(const FaultDatas& data) override {
-    if (data.empty()) return;
+    // data is the *current* fault set pushed by the robot:
+    // - non-empty  -> these faults are active right now
+    // - empty      -> all previous faults have been cleared
+    if (data.empty()) {
+      std::cout << "\n[FAULT] All faults cleared." << std::endl;
+      return;
+    }
+
     std::cout << "\n[FAULT] Detected " << data.size()
-              << " fault(s):" << std::endl;
+              << " active fault(s):" << std::endl;
     for (const auto& fault : data) {
-      std::cout << "  └─ Level: " << static_cast<int>(fault.level)
-                << ", Code: " << static_cast<int>(fault.code)
+      const char* level_name = "Unknown";
+      switch (fault.level) {
+        case FaultLevel::FatalError:
+          level_name = "FATAL";
+          break;
+        case FaultLevel::Error:
+          level_name = "ERROR";
+          break;
+        case FaultLevel::Warn:
+          level_name = "WARN";
+          break;
+        default:
+          level_name = "Unknown";
+          break;
+      }
+      std::cout << "  └─ [" << level_name
+                << "] Code: " << static_cast<int>(fault.code)
                 << ", Message: " << fault.message << std::endl;
     }
   }
@@ -173,9 +194,9 @@ class ControlCallback : public IControlCallback {
 
   void OnGait() override { std::cout << "[CTRL] ✓ Gait" << std::endl; }
 
-  void OnSlim() override { std::cout << "[CTRL] ✓ Slim" << std::endl; }
+  void OnWalk() override { std::cout << "[CTRL] ✓ Walk" << std::endl; }
 
-  void OnDSB() override { std::cout << "[CTRL] ✓ DSB" << std::endl; }
+  void OnSlim() override { std::cout << "[CTRL] ✓ Slim" << std::endl; }
 
   void OnPosControl() override {
     std::cout << "[CTRL] ✓ Pos Control" << std::endl;
@@ -379,27 +400,34 @@ using CommandHandler = std::function<void(SDKClient&)>;
  */
 void PrintHelp() {
   std::cout << "\n========== Control Commands ==========" << std::endl;
+  std::cout
+      << "[Keys]     lowercase: standard command; uppercase: alternate command"
+      << std::endl;
   std::cout << "[Speed]    4:Low  5:Medium  6:High" << std::endl;
-  std::cout << "[Move]     W:Forward  S:Backward  A:Left  D:Right  P:Stop"
+  std::cout << "[Move]     w:Forward  s:Backward  a:Left  d:Right (joystick)"
+            << std::endl;
+  std::cout << "[Velocity] W:Forward  S:Backward  A:Left  D:Right  "
+               "[:Yaw Left  ]:Yaw Right (m/s, rad/s)"
             << std::endl;
   std::cout << "[PosMove]  +:Z+  -:Z- " << std::endl;
-  std::cout << "[Yaw]      L:Left  R:Right" << std::endl;
+  std::cout << "[Yaw]      l:Left  r:Right" << std::endl;
   std::cout << "[Roll]     7:Left roll  8:Right roll" << std::endl;
   std::cout << "[Stance]   <:Low  >:High  ?:Restore" << std::endl;
   std::cout << "[Head]     9:Look Left  0:Look Up" << std::endl;
-  std::cout << "[Pose]     1:BalanceStandUp  2:CrawlWalk  3:Stair  Z:Stand  "
-               "X:Crawl  C:Lie  G:Gait  J:Climb  K:Slim  U:PosControl  /:SkWalk"
-               "  ;:Sand"
+  std::cout
+      << "[Pose]     1:BalanceStandUp  2:CrawlWalk  3:Stair  z:Stand  Z:Walk  "
+         "x:Crawl  c:Lie  g:Gait  j:Climb  k:Slim  u:PosControl  /:SkWalk"
+         "  ;:Sand"
+      << std::endl;
+  std::cout << "[Light]    f:Front  b:Back  n:Auto" << std::endl;
+  std::cout << "[LED]      N:AutoMode  =:GetAuto  {:BlinkOrange  }:Off"
             << std::endl;
-  std::cout << "[Light]    F:Front  B:Back  N:Auto" << std::endl;
-  std::cout << "[LED]      Shift+N:AutoMode  =:GetAuto  {:BlinkOrange  }:Off"
+  std::cout << "[Safety]   i:ObstacleAvoidance" << std::endl;
+  std::cout << "[System]   e:E-Stop  m:Lock  v:Reverse Head/Tail" << std::endl;
+  std::cout << "[Control]  t:TakeControl y:ReleaseControl R:RemoteState "
+               "I:IdleState"
             << std::endl;
-  std::cout << "[Safety]   I:ObstacleAvoidance" << std::endl;
-  std::cout << "[System]   E:E-Stop  M:Lock  V:Reverse Head/Tail" << std::endl;
-  std::cout << "[Control]  T:TakeControl Y:ReleaseControl Shift+R:RemoteState "
-               "Shift+I:IdleState"
-            << std::endl;
-  std::cout << "[General]  Space:Stop  O:Status  H:Help  Q:Quit"
+  std::cout << "[General]  Space:Stop  p:Stop  o:Status  h:Help  q:Quit"
             << std::endl;
   std::cout << "[PowerCtrl] ,:Set M1_12V  .:Get M1_12V" << std::endl;
   std::cout << "======================================\n" << std::endl;
@@ -429,19 +457,25 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
        [](SDKClient& client) { client.ControlHead(0.5, 0.0); }},  // Left peek
       {'0',
        [](SDKClient& client) { client.ControlHead(0.0, 0.5); }},  // Look up
-      {'<',
-       [](SDKClient& client) { client.HighLowStance(2); }},  // Low stance
-      {'>',
-       [](SDKClient& client) { client.HighLowStance(1); }},  // High stance
+      {'<', [](SDKClient& client) { client.HighLowStance(2); }},  // Low stance
+      {'>', [](SDKClient& client) { client.HighLowStance(1); }},  // High stance
       {'?',
        [](SDKClient& client) { client.HighLowStance(0); }},  // Restore stance
 
       // ============ Directional Movement ============
-      {'w', [](SDKClient& client) { client.Move(0.0, 0.11, 0.0); }},  // Forward
-      {'a', [](SDKClient& client) { client.Move(0.1, 0.0, 0.0); }},   // Left
+      {'w', [](SDKClient& client) { client.Move(0.0, 0.3, 0.0); }},  // Forward
+      {'a', [](SDKClient& client) { client.Move(0.3, 0.0, 0.0); }},  // Left
       {'s',
-       [](SDKClient& client) { client.Move(0.0, -0.11, 0.0); }},  // Backward
-      {'d', [](SDKClient& client) { client.Move(-0.1, 0.0, 0.0); }},  // Right
+       [](SDKClient& client) { client.Move(0.0, -0.3, 0.0); }},  // Backward
+      {'d', [](SDKClient& client) { client.Move(-0.3, 0.0, 0.0); }},  // Right
+
+      // ============ Direct Velocity Control (physical units) ============
+      {'W', [](SDKClient& client) { client.MoveVelocity(0.5, 0.0, 0.0); }},
+      {'A', [](SDKClient& client) { client.MoveVelocity(0.0, 0.25, 0.0); }},
+      {'S', [](SDKClient& client) { client.MoveVelocity(-0.5, 0.0, 0.0); }},
+      {'D', [](SDKClient& client) { client.MoveVelocity(0.0, -0.25, 0.0); }},
+      {'[', [](SDKClient& client) { client.MoveVelocity(0.0, 0.0, 0.5); }},
+      {']', [](SDKClient& client) { client.MoveVelocity(0.0, 0.0, -0.5); }},
 
       // ============ Turn Control ============
       {'l',
@@ -451,6 +485,7 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
 
       // ============ Posture Control ============
       {'z', [](SDKClient& client) { client.StandUp(); }},  // Stand
+      {'Z', [](SDKClient& client) { client.Walk(); }},     // Walk
       {'x', [](SDKClient& client) { client.Crawl(); }},    // Crawl
       {'c', [](SDKClient& client) { client.LieDown(); }},  // Lie down
       {'v',
@@ -621,6 +656,7 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
       {' ',
        [](SDKClient& client) {  // Stop all motion
          client.Move(0.0, 0.0, 0.0);
+         client.MoveVelocity(0.0, 0.0, 0.0);
          client.Turn(0);
          client.ControlHead(0.0, 0.0);
          std::cout << "[CMD] Stop all motion" << std::endl;
@@ -628,6 +664,7 @@ std::map<char, CommandHandler> CreateCommandTable(SDKClient& sdk_client) {
       {'p',
        [](SDKClient& client) {  // Stop all motion
          client.Move(0.0, 0.0, 0.0);
+         client.MoveVelocity(0.0, 0.0, 0.0);
          client.Turn(0);
          client.ControlHead(0.0, 0.0);
          std::cout << "[CMD] Stop all motion" << std::endl;

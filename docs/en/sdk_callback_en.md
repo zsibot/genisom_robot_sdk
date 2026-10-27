@@ -8,8 +8,8 @@ with distinct responsibilities:
 
 | Interface | Responsibility | Typical Content |
 |:--|:--|:--|
-| `IDataCallback` | Receives data **actively reported** by the robot | Sensor data, robot state, faults, ownership events, task state |
-| `IControlCallback` | Receives **acknowledgments (ACKs)** of control commands | Confirmation that "the robot received your command", plus business results carried by some ACKs |
+| `IDataCallback` | Receives robot **pushes** and asynchronous final results | Sensor data, robot state, faults, ownership events, task state, dock scan results, and final connection results |
+| `IControlCallback` | Receives command **acknowledgments (ACKs)** and query results | Confirmation that "the robot received your command", plus business or query results |
 
 Both are abstract base classes with default empty implementations — override only the callbacks you care about,
 then register them via `SDKClient::SetDataCallback()` / `SDKClient::SetControlCallback()`
@@ -19,10 +19,12 @@ then register them via `SDKClient::SetDataCallback()` / `SDKClient::SetControlCa
 
 The key to understanding callbacks is distinguishing two kinds of messages:
 
-- **Notifications (IDataCallback)**: pushed by the robot on its own initiative, regardless of whether
-  you sent any command. For example, `OnRobotStateData()` keeps arriving at 1 Hz.
+- **Notifications and asynchronous final results (IDataCallback)**: data, events, or final results
+  of long-running operations pushed by the robot, rather than command-receipt ACKs.
+  For example, `OnRobotStateData()` keeps arriving at 1 Hz, while
+  `OnDockConnectionResult()` arrives when a dock connect or disconnect operation finishes.
 - **Acknowledgments (IControlCallback)**: the robot's receipt for a specific control command,
-  meaning "command received". For example, `OnStandUp()` arrives after you call `StandUp()`.
+  meaning "command received". Some query results, such as `OnDockInfo()`, also use this interface.
 
 > **Important:** most ACKs only mean the robot **received** the command — not that the action **finished**.
 > When `OnStandUp()` arrives, the robot may still be in the process of standing up.
@@ -46,7 +48,9 @@ The key to understanding callbacks is distinguishing two kinds of messages:
    If you must trigger SDK operations from a callback, post them to another thread or use the async form.
 3. **Beware of data races**: the callback thread runs concurrently with your main thread;
    protect shared data with locks or use atomics.
-4. **Do not throw exceptions** out of a callback; uncaught exceptions disrupt the SDK's internal loop.
+4. **Do not throw exceptions** out of a callback. The SDK catches `std::exception` and unknown exceptions,
+   logs an error, and drops the current callback event to protect its internal I/O thread; your application
+   remains responsible for recovery, alerting, and data compensation.
 
 ```cpp
 // Recommended pattern: copy data / set flags in the callback, do business logic in your own thread
@@ -74,6 +78,8 @@ class ROBOT_EXPORT_API IDataCallback {
   virtual void OnControlLost(const ControlLostInfo& info) {}
   virtual void OnControlAvailable(const ControlAvailableInfo& info) {}
   virtual void OnTaskStateData(const TaskStateInfo& info) {}
+  virtual void OnDockScanResult(const DockScanResult& result) {}
+  virtual void OnDockConnectionResult(const DockConnectionResult& result) {}
   virtual ~IDataCallback() = default;
 };
 ```
@@ -95,6 +101,24 @@ class ROBOT_EXPORT_API IDataCallback {
 | `OnRobotStateData(const RobotState&)` | Comprehensive robot state snapshot | Continuously at 1 Hz |
 | `OnFaultData(const FaultDatas&)` | Fault information (may contain multiple faults) | When a fault occurs |
 | `OnTaskStateData(const TaskStateInfo&)` | Task state (recharge, undock, etc.) | When task state changes |
+
+When a recharge or undock task fails, the error reason is reported in
+`TaskStateInfo.error_code`; see [Recharge and Undock Task Error Codes](sdk_recharge_errorcode_en.md).
+`TaskStateInfo.phase` provides finer recharge/undock progress and may be empty or
+contain a value introduced by a later version. Do not use it instead of
+`task_status` for terminal-state decisions. See
+[Recharge & Undock Task Guide](sdk_recharge_task_en.md#phase--task-subphase).
+
+### Charging Dock Scan and Final Connection Results
+
+| Callback | Protocol ID | Trigger | Key Result |
+|:--|:--:|:--|:--|
+| `OnDockScanResult(const DockScanResult& result)` | `1018` | Passively pushed after scanning is enabled through `SetDockScanConfig(true)`; may be called repeatedly while scanning | `result.devices` contains the current device list; `device.address` identifies a dock and `device.connectable` indicates whether it can be connected |
+| `OnDockConnectionResult(const DockConnectionResult& result)` | `1024` | When the asynchronous operation started by `ConnectDock()` or `DisconnectDock()` finishes | `result.success` is the final result; `result.error_code` provides the failure reason |
+
+`OnDockConnectionResult()` is the final state of a connect or disconnect operation. The earlier `OnDockConnectionAck()` only reports whether the request was accepted. Start only one connect or disconnect operation at a time.
+
+See the [Charging Dock Pairing API Guide](sdk_dock_pairing_en.md) for the complete workflow.
 
 ### Control Ownership Events
 
@@ -123,7 +147,7 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnClimb() {}
   virtual void OnSlim() {}
   virtual void OnGait() {}
-  virtual void OnDSB() {}
+  virtual void OnWalk() {}
   virtual void OnPosControl() {}
   virtual void OnSkWalk() {}
   virtual void OnSand() {}
@@ -139,9 +163,12 @@ class ROBOT_EXPORT_API IControlCallback {
   virtual void OnMcConfig(bool on) {}
   virtual void OnSpeedReportConfig(bool on, uint32_t frequency) {}
   virtual void OnJointStateConfig(bool on) {}
+  virtual void OnDockScanConfig(bool on) {}
   virtual void OnTakeControlAck(const TakeControlAck& ack) {}
   virtual void OnReleaseControlAck(const ReleaseControlAck& ack) {}
   virtual void OnUpdateCameraBitrateAck(const CameraBitrateAck& ack) {}
+  virtual void OnDockConnectionAck(const DockConnectionAck& ack) {}
+  virtual void OnDockInfo(const DockInfo& info) {}
   virtual void OnSwitchRemote() {}
   virtual void OnSwitchIdle() {}
   virtual void OnStartRechargeTask() {}
@@ -171,7 +198,7 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnClimb()` | `Climb()` | — |
 | `OnSlim()` | `Slim()` | — |
 | `OnGait()` | `Gait()` | — |
-| `OnDSB()` | `DSB()` | — |
+| `OnWalk()` | `Walk()` | — |
 | `OnPosControl()` | `PosControl()` | — |
 | `OnSkWalk()` | `SkWalk()` | — |
 | `OnSand()` | `Sand()` | — |
@@ -179,7 +206,7 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnSpeed(int speed_level)` | `SetSpeed(level)` | Applied speed level (1 low / 2 medium / 3 high) |
 | `OnLocked()` | `Locked()` | — |
 
-> Continuous-control commands such as `Move()`, `Turn()`, `ControlHead()`, `HighLowStance()`,
+> Continuous-control commands such as `Move()`, `MoveVelocity()`, `Turn()`, `ControlHead()`, `HighLowStance()`,
 > and `PosMove()` have **no ACK callbacks**; their result is only the `WriteHandler` send result.
 
 ### Light & Perception Switch ACKs
@@ -200,6 +227,16 @@ class ROBOT_EXPORT_API IControlCallback {
 | `OnMcConfig(bool on)` | `SetMcConfig(on)` | Switch state |
 | `OnSpeedReportConfig(bool on, uint32_t frequency)` | `SetSpeedReportConfig(on, freq)` | Switch state and applied rate |
 | `OnJointStateConfig(bool on)` | `SetJointStateConfig(on)` | Switch state |
+
+### Charging Dock ACKs and Query Results
+
+| Callback | Corresponding API | Protocol ID | Description |
+|:--|:--|:--:|:--|
+| `OnDockScanConfig(bool on)` | `SetDockScanConfig(on)` | `1008 (target=302)` | Confirms that the scan setting has been applied; `on` is the current setting |
+| `OnDockConnectionAck(const DockConnectionAck& ack)` | `ConnectDock(config)` / `DisconnectDock()` | `1022` | `ack.accepted` indicates whether the request was accepted; failures are described by `ack.error_code` and `ack.error_message`. This is not the final connection result |
+| `OnDockInfo(const DockInfo& info)` | `GetDockInfo()` | `1023` | Returns charging dock information and its connection, contact, charging, and fill-light states; it may also be triggered by state changes |
+
+After a connect or disconnect request is accepted, continue waiting for `IDataCallback::OnDockConnectionResult()` to obtain the final result. After an active query, read `info.dock_connected` in `OnDockInfo()` to confirm the connection state.
 
 ### Control Ownership ACKs (carry business results)
 
@@ -302,12 +339,15 @@ client.SetControlCallback(std::make_shared<MyControlCallback>());
   mind thread safety, and don't throw**.
 - An ACK does not mean the action completed: check `RobotState` for motion states and
   `OnTaskStateData()` for task results.
-- ACKs carrying `error_code` (ownership, peripheral power, etc.) are the final business results.
-- Callback objects are registered via `shared_ptr`; keep them alive while the SDK uses them —
-  the SDK holds the reference until replaced or destroyed.
+- Whether an ACK is final depends on the callback. For example, `OnDockConnectionAck()` carries an `error_code` but only reports whether the request was accepted.
+- Callback objects are registered via `shared_ptr`, and the SDK keeps its own
+  reference. Callbacks can be safely replaced; pass `nullptr` to unregister one.
+- Replacing or unregistering a callback does not interrupt an invocation that
+  has already started. The SDK holds a `shared_ptr` snapshot until that invocation finishes.
 
 ## Related Documents
 
 - [SDKClient API Reference](sdk_client_api_en.md) — Client interface details
 - [Data Types Reference](sdk_type_en.md) — Struct definitions used by callback parameters
 - [Control Ownership](sdk_control_ownership_en.md) — The ownership event handling pattern
+- [Charging Dock Pairing API Guide](sdk_dock_pairing_en.md) — Scan, connect, query, and disconnect workflow

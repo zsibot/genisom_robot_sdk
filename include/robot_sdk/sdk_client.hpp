@@ -86,10 +86,6 @@ class ROBOT_EXPORT_API SDKClient {
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
-  std::error_code DSB(
-      int timeout_ms = 0,
-      WriteHandler handler = [](const std::error_code&, std::size_t) {});
-
   std::error_code PosControl(
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
@@ -103,6 +99,10 @@ class ROBOT_EXPORT_API SDKClient {
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
   std::error_code Locked(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code Walk(
       int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
@@ -138,6 +138,10 @@ class ROBOT_EXPORT_API SDKClient {
       float left_right, float forward_back, float yaw, int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
+  std::error_code MoveVelocity(
+      float x, float y, float yaw, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
   std::error_code Turn(
       int direction, int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
@@ -168,6 +172,22 @@ class ROBOT_EXPORT_API SDKClient {
 
   std::error_code SetJointStateConfig(
       bool on, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code SetDockScanConfig(
+      bool on, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code ConnectDock(
+      const DockConnectConfig& config, int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code DisconnectDock(
+      int timeout_ms = 0,
+      WriteHandler handler = [](const std::error_code&, std::size_t) {});
+
+  std::error_code GetDockInfo(
+      int timeout_ms = 0,
       WriteHandler handler = [](const std::error_code&, std::size_t) {});
 
   std::error_code TakeControl(

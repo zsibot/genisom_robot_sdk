@@ -59,6 +59,12 @@ class ROBOT_EXPORT_API IDataCallback {
   /// changes).
   virtual void OnTaskStateData(const TaskStateInfo& info) {}
 
+  /// @brief Charging dock scan result (type 1018).
+  virtual void OnDockScanResult(const DockScanResult& result) {}
+
+  /// @brief Final result of a dock connect/disconnect operation (type 1024).
+  virtual void OnDockConnectionResult(const DockConnectionResult& result) {}
+
   virtual ~IDataCallback() = default;
 };
 
@@ -99,8 +105,8 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for gait command received.
   virtual void OnGait() {}
 
-  /// @brief Acknowledgment for DSB command received.
-  virtual void OnDSB() {}
+  /// @brief Acknowledgment for walk posture command received.
+  virtual void OnWalk() {}
 
   /// @brief Acknowledgment for PosControl command received.
   virtual void OnPosControl() {}
@@ -158,6 +164,10 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @param on true: enabled; false: disabled.
   virtual void OnJointStateConfig(bool on) {}
 
+  /// @brief Acknowledgment for charging dock scan configuration (type 1008,
+  /// target 302).
+  virtual void OnDockScanConfig(bool on) {}
+
   /// @brief Acknowledgment for take control command received.
   /// @param ack Control acknowledgment information.
   virtual void OnTakeControlAck(const TakeControlAck& ack) {}
@@ -169,6 +179,13 @@ class ROBOT_EXPORT_API IControlCallback {
   /// @brief Acknowledgment for camera bitrate update command received.
   /// @param ack Camera bitrate acknowledgment information.
   virtual void OnUpdateCameraBitrateAck(const CameraBitrateAck& ack) {}
+
+  /// @brief Acceptance result for an asynchronous dock connection request
+  /// (type 1022). The final result is delivered to OnDockConnectionResult.
+  virtual void OnDockConnectionAck(const DockConnectionAck& ack) {}
+
+  /// @brief Charging dock information query response (type 1023).
+  virtual void OnDockInfo(const DockInfo& info) {}
 
   /// @brief Notification that the robot has received the switching instruction.
   virtual void OnSwitchRemote() {}

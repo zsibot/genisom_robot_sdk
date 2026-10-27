@@ -141,16 +141,20 @@
 
 - `task_status == STARTING` 或 `RUNNING`
 - `machine_status == RECHARGE`
+- `phase` 为 `recharge_preparing`、`recharge_docking`、`recharge_charging`
+  或 `recharge_completed` 之一（允许为空或出现后续新增值）
 
 通常就可以认为：
 
 > 充电任务已经进入执行过程。
 
-#### 充电任务是否成功/失败/停止
+#### 充电任务只会返回 3 种状态
 
-- `task_status == SUCCESS`：任务成功完成
+- `task_status == RUNNING`：任务进行中
 - `task_status == FAILURE`：任务执行失败
 - `task_status == STOPPED`：任务已被停止
+
+`phase` 只细化进度：`recharge_completed` 表示进入满电保持。
 
 #### 离桩任务是否已开始
 
@@ -163,6 +167,8 @@
 
 - `task_status == STARTING` 或 `RUNNING`
 - `machine_status == UNDOCK`
+- `phase` 为 `undock_preparing`、`undock_undocking` 或 `undock_completed`
+  之一（允许为空或出现后续新增值）
 
 通常就可以认为：
 
@@ -173,6 +179,9 @@
 - `task_status == SUCCESS`：离桩完成
 - `task_status == FAILURE`：离桩失败
 - `task_status == STOPPED`：离桩任务已停止
+
+`undock_completed` 可辅助展示完成进度，但最终成功仍以
+`task_status == SUCCESS` 为准。
 
 #### 一个简单原则
 
